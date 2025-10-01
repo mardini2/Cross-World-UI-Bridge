@@ -5,17 +5,17 @@ import os
 from typing import Optional
 try:
     import win32com.client as win32
-except Exception as exc:
+except Exception:
     win32 = None
 
-def word_count(path: Optional[str]=None) -> int:
+
+def word_count(path: Optional[str] = None) -> int:
     """
     If a path is provided, open the document silently; otherwise use the active document if available.
     """
     if win32 is None:
         raise RuntimeError("win32com is not available. Install pywin32 and run on Windows.")
     word = win32.Dispatch("Word.Application")
-    # don't flash any windows in the user's face
     word.Visible = False
     doc = None
     try:
@@ -25,7 +25,7 @@ def word_count(path: Optional[str]=None) -> int:
             if word.Documents.Count == 0:
                 return 0
             doc = word.ActiveDocument
-        # built-in statistic: 0 => wdStatisticWords
+        # 0 => wdStatisticWords
         count = doc.ComputeStatistics(0)
         return int(count)
     finally:
