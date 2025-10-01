@@ -1,0 +1,11 @@
+# requirements-dev.txt
+# Dev-only tools. Install with:
+#   pip install -r requirements-dev.txt
+
+black==24.8.0
+isort==5.13.2
+ruff==0.6.9
+mypy==1.11.2
+pytest>=8.3.0,<9
+types-pywin32==306.0.0.2   # mypy stubs for pywin32
+pre-commit==3.7.1
