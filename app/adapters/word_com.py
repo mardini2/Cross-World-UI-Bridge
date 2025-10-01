@@ -17,14 +17,16 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
+# Annotate as Any so assigning either the imported module or None is valid to mypy
+win32: Any
 try:
-    # Word COM (pywin32)
-    import win32com.client as win32
-except Exception:
-    win32 = None  # Keep module importable on non-Windows or without pywin32
+    import win32com.client as _win32  # type: ignore[import-not-found]
 
+    win32 = _win32
+except Exception:
+    win32 = None  # keeps module importable on non-Windows or without pywin32
 
 # Allowed Word document extensions
 _ALLOWED_EXTS = {".doc", ".docx", ".rtf"}
@@ -57,7 +59,7 @@ def _validate_and_resolve_path(raw: str) -> Path:
 
     # 3) Reject illegal characters in any component
     for part in resolved.parts:
-        # Skip drive root like "C:\"
+        # Skip drive roots like "C:\"
         if part.endswith(":\\") or part in ("/", "\\"):
             continue
         if any(ch in _FORBIDDEN_CHARS for ch in part):
