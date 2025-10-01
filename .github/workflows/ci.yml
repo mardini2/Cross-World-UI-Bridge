@@ -7,6 +7,11 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+# cancel older runs on the same ref
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: windows-latest
@@ -31,11 +36,11 @@ jobs:
         run: python -m pip install --upgrade pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: python -m pip install -r requirements.txt
 
-      # Pin tool versions so local and CI match
+      # pin tool versions so local and CI match
       - name: Install tooling
-        run: pip install black==24.8.0 ruff==0.6.9 isort==5.13.2 mypy==1.11.2 pytest
+        run: python -m pip install black==24.8.0 ruff==0.6.9 isort==5.13.2 mypy==1.11.2 pytest
 
       - name: Lint (ruff)
         run: ruff check app tests
@@ -64,14 +69,22 @@ jobs:
       - name: Upgrade pip and install deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller
+
+      - name: Clean PyInstaller outputs
+        shell: pwsh
+        run: |
+          if (Test-Path .\dist) { Remove-Item -Recurse -Force .\dist }
+          if (Test-Path .\build) { Remove-Item -Recurse -Force .\build }
+          if (Test-Path .\UIBridge.spec) { Remove-Item -Force .\UIBridge.spec }
+          if (Test-Path .\ui.spec) { Remove-Item -Force .\ui.spec }
 
       - name: Build agent EXE with PyInstaller
-        run: pyinstaller --noconsole --name UIBridge --version-file installer/version_info.txt app/main.py
+        run: pyinstaller --noconfirm --clean --noconsole --name UIBridge --version-file installer/version_info.txt app/main.py
 
       - name: Build CLI EXE (ui)
-        run: pyinstaller --name ui --version-file installer/version_info.txt app/cli/entry.py
+        run: pyinstaller --noconfirm --clean --name ui --version-file installer/version_info.txt app/cli/entry.py
 
       - name: Upload EXE artifacts
         uses: actions/upload-artifact@v4

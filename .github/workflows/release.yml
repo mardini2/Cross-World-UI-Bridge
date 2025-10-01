@@ -10,6 +10,11 @@ on:
 permissions:
   contents: write
 
+# cancel older runs for the same tag
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: windows-latest
@@ -25,23 +30,27 @@ jobs:
       - name: Upgrade pip and install deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller
 
-      # 🧱 Build agent EXE (UIBridge.exe)
+      - name: Clean PyInstaller outputs
+        shell: pwsh
+        run: |
+          if (Test-Path .\dist) { Remove-Item -Recurse -Force .\dist }
+          if (Test-Path .\build) { Remove-Item -Recurse -Force .\build }
+          if (Test-Path .\UIBridge.spec) { Remove-Item -Force .\UIBridge.spec }
+          if (Test-Path .\ui.spec) { Remove-Item -Force .\ui.spec } 
+
       - name: Build agent EXE with PyInstaller
-        run: pyinstaller --noconsole --name UIBridge --version-file installer/version_info.txt app/main.py
+        run: pyinstaller --noconfirm --clean --noconsole --name UIBridge --version-file installer/version_info.txt app/main.py
 
-      # 🛠️ Build CLI EXE (ui.exe)
       - name: Build CLI EXE (ui)
-        run: pyinstaller --name ui --version-file installer/version_info.txt app/cli/entry.py
+        run: pyinstaller --noconfirm --clean --name ui --version-file installer/version_info.txt app/cli/entry.py
 
-      # 📦 Zip both executables
       - name: Archive EXEs
         run: |
           powershell Compress-Archive -Path "dist\\UIBridge\\UIBridge.exe","dist\\ui\\ui.exe" -DestinationPath "UIBridge-Windows.zip" -Force
 
-      # ⬆️ Upload artifact for the publish job
       - name: Upload artifacts for this run
         uses: actions/upload-artifact@v4
         with:

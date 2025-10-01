@@ -1,0 +1,44 @@
+# .github/workflows/dependabot-autofix-format.yml
+name: Auto-fix formatting on Dependabot PRs
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: "dbot-format-${{ github.event.pull_request.number }}"
+  cancel-in-progress: true
+
+jobs:
+  autofix:
+    if: ${{ github.actor == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install tooling
+        run: python -m pip install black==24.8.0 isort==5.13.2 ruff==0.6.9
+
+      - name: Run formatters
+        run: |
+          black app tests
+          isort app tests --profile=black
+          ruff check app tests --fix || true
+
+      - name: Commit changes back to PR
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: auto-format (black/isort/ruff) for Dependabot PR"
