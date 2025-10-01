@@ -13,7 +13,7 @@ pywin32>=306; platform_system=="Windows"
 pywinauto>=0.6.9; platform_system=="Windows"
 uiautomation>=2.0.19; platform_system=="Windows"
 SQLAlchemy~=2.0
-aiosqlite~=0.20
+aiosqlite~=0.21
 keyring~=25.2
 python-dotenv~=1.0
 pytest~=8.3
