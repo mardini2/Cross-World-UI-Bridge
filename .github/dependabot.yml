@@ -10,7 +10,6 @@ updates:
       timezone: "UTC"
     open-pull-requests-limit: 10
 
-    # Group the dev-tooling updates together so PR noise stays low
     groups:
       dev-tools:
         applies-to: version-updates
@@ -24,7 +23,6 @@ updates:
           - "types-*"
           - "pre-commit"
 
-    # Don’t open breaking majors for core runtime libs unless we opt-in
     ignore:
       - dependency-name: "fastapi"
         update-types: ["version-update:semver-major"]

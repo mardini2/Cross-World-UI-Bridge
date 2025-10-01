@@ -40,12 +40,25 @@ jobs:
           if (Test-Path .\ui.spec) { Remove-Item -Force .\ui.spec }
 
       - name: Build agent EXE with PyInstaller
-        run: pyinstaller --noconfirm --clean --noconsole --name UIBridge --version-file installer/version_info.txt app/main.py
+        run: >
+          pyinstaller --noconfirm --clean --noconsole
+          --name UIBridge
+          --version-file installer/version_info.txt
+          --hidden-import aiosqlite
+          --hidden-import sqlalchemy.dialects.sqlite.aiosqlite
+          --collect-submodules sqlalchemy.dialects
+          app/main.py
 
       - name: Build CLI EXE (ui)
-        run: pyinstaller --noconfirm --clean --name ui --version-file installer/version_info.txt app/cli/entry.py
+        run: >
+          pyinstaller --noconfirm --clean
+          --name ui
+          --version-file installer/version_info.txt
+          --hidden-import aiosqlite
+          --hidden-import sqlalchemy.dialects.sqlite.aiosqlite
+          --collect-submodules sqlalchemy.dialects
+          app/cli/entry.py
 
-      # Package the full onedir folders + helper launchers + installer scripts
       - name: Prepare Windows package folder
         shell: pwsh
         run: |
@@ -56,7 +69,6 @@ jobs:
           Copy-Item -Recurse -Force "dist\UIBridge" "$pkg\UIBridge"
           Copy-Item -Recurse -Force "dist\ui" "$pkg\ui"
 
-          # Write helper launchers without here-strings (YAML-safe)
           Set-Content -Encoding ascii "$pkg\Open UIBridge CLI.cmd" @(
             '@echo off',
             'cd /d "%~dp0ui"',
