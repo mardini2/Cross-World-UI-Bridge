@@ -1,5 +1,9 @@
 """
-Goal: CDP guard — verify we can import websockets/httpx; not asserting a live Edge debugging session here.
+Goal: CDP guard — verify we can import websockets/httpx; not asserting a live debugging session.
 """
+import websockets  # noqa: F401
+import httpx  # noqa: F401
+
+
 def test_imports():
-    import websockets, httpx  # noqa: F401
+    assert True
