@@ -1,6 +1,14 @@
 # scripts/install_agent_startup.ps1
-# Goal: Install the UIBridge agent EXE to %LOCALAPPDATA%\UIBridge, create Desktop & Start Menu shortcuts,
-# and add a Startup shortcut so the agent launches on sign-in.
+# Goal: Install the UIBridge CLI package to %LOCALAPPDATA%\UIBridge
+# Layout after install:
+#   %LOCALAPPDATA%\UIBridge\
+#     UIBridge\...   (agent onedir)
+#     ui\...         (cli onedir)
+#     Open UIBridge CLI.cmd
+#     Start UIBridge Agent.cmd
+#     install_agent_startup.ps1
+#     uninstall_agent_startup.ps1
+# Also create Desktop / Start Menu shortcuts and a Startup shortcut (Agent).
 
 param(
   [string]$ZipUrl = "https://github.com/mardini2/Cross-World-UI-Bridge/releases/latest/download/UIBridge-Windows.zip"
@@ -8,52 +16,58 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$LocalApp = Join-Path $env:LOCALAPPDATA "UIBridge"
-$BinDir   = $LocalApp
+$InstallRoot = Join-Path $env:LOCALAPPDATA "UIBridge"
 $ZipPath  = Join-Path $env:TEMP "UIBridge-Windows.zip"
-$ExePath  = Join-Path $BinDir   "UIBridge.exe"
+$AgentExe = Join-Path $InstallRoot "UIBridge\UIBridge.exe"
+$CliExe   = Join-Path $InstallRoot "ui\ui.exe"
 
-Write-Host "Installing to: $BinDir"
+Write-Host "Installing to: $InstallRoot"
 
-if (-not (Test-Path $BinDir)) { New-Item -ItemType Directory -Force -Path $BinDir | Out-Null }
+if (Test-Path $InstallRoot) { Remove-Item -Recurse -Force $InstallRoot }
+New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
 
-# Download latest build
-Write-Host "Downloading latest build..."
+Write-Host "Downloading: $ZipUrl"
 Invoke-WebRequest -Uri $ZipUrl -OutFile $ZipPath
 
-# Unblock and extract
 Write-Host "Unblocking and extracting..."
 Unblock-File -Path $ZipPath
-Expand-Archive -Path $ZipPath -DestinationPath $BinDir -Force
+Expand-Archive -Path $ZipPath -DestinationPath $InstallRoot -Force
 
-if (-not (Test-Path $ExePath)) {
-  throw "UIBridge.exe not found after extraction."
+# If the zip unpacked into a subfolder "UIBridge-Windows", move its contents up
+$Sub = Join-Path $InstallRoot "UIBridge-Windows"
+if (Test-Path $Sub) {
+  Get-ChildItem $Sub | Move-Item -Destination $InstallRoot -Force
+  Remove-Item -Recurse -Force $Sub
 }
 
-# Create Desktop and Start Menu shortcuts
+if (-not (Test-Path $AgentExe)) { throw "Agent not found at $AgentExe" }
+if (-not (Test-Path $CliExe))   { throw "CLI not found at $CliExe" }
+
+# Create shortcuts
 $Shell = New-Object -ComObject WScript.Shell
-
-$Desktop = [Environment]::GetFolderPath("Desktop")
+$Desktop   = [Environment]::GetFolderPath("Desktop")
 $StartMenu = [Environment]::GetFolderPath("StartMenu")
-$Programs = Join-Path $StartMenu "Programs"
-$Startup  = [Environment]::GetFolderPath("Startup")
+$Programs  = Join-Path $StartMenu "Programs"
+$Startup   = [Environment]::GetFolderPath("Startup")
 
-$DesktopLnk = Join-Path $Desktop "UIBridge CLI.lnk"
-$ProgramsLnk = Join-Path $Programs "UIBridge CLI.lnk"
-$StartupLnk = Join-Path $Startup "UIBridge CLI (auto-start).lnk"
-
-function New-Shortcut($target, $lnkPath, $workdir) {
+function New-Shortcut($target, $lnkPath, $workdir, $desc) {
   $sc = $Shell.CreateShortcut($lnkPath)
   $sc.TargetPath = $target
   $sc.WorkingDirectory = $workdir
   $sc.IconLocation = $target
-  $sc.Description = "UIBridge CLI agent"
+  $sc.Description = $desc
   $sc.Save()
 }
 
-Write-Host "Creating shortcuts..."
-New-Shortcut -target $ExePath -lnkPath $DesktopLnk -workdir $BinDir
-New-Shortcut -target $ExePath -lnkPath $ProgramsLnk -workdir $BinDir
-New-Shortcut -target $ExePath -lnkPath $StartupLnk -workdir $BinDir
+# Desktop
+New-Shortcut -target $AgentExe -lnkPath (Join-Path $Desktop "UIBridge Agent.lnk") -workdir (Split-Path $AgentExe) -desc "UIBridge CLI agent"
+New-Shortcut -target $CliExe   -lnkPath (Join-Path $Desktop "UIBridge CLI.lnk")   -workdir (Split-Path $CliExe)   -desc "UIBridge CLI"
 
-Write-Host "Done. The agent will start on your next sign-in. You can also launch it from the Desktop shortcut."
+# Start Menu
+New-Shortcut -target $AgentExe -lnkPath (Join-Path $Programs "UIBridge Agent.lnk") -workdir (Split-Path $AgentExe) -desc "UIBridge CLI agent"
+New-Shortcut -target $CliExe   -lnkPath (Join-Path $Programs "UIBridge CLI.lnk")   -workdir (Split-Path $CliExe)   -desc "UIBridge CLI"
+
+# Startup (Agent auto-start)
+New-Shortcut -target $AgentExe -lnkPath (Join-Path $Startup "UIBridge Agent (auto-start).lnk") -workdir (Split-Path $AgentExe) -desc "UIBridge CLI agent (auto-start)"
+
+Write-Host "Done. Shortcuts created. Agent will auto-start next sign-in."
