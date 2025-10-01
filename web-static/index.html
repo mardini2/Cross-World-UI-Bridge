@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UI Bridge</title>
+  <style>
+    body{font-family: ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial; margin:0; color:#0f172a;}
+    header{padding:48px 24px; background:linear-gradient(135deg,#0ea5e9,#6366f1); color:white;}
+    header .title{font-size:36px; font-weight:800; letter-spacing:.5px;}
+    header .tag{opacity:.95; margin-top:8px}
+    .container{max-width:920px; margin:0 auto; padding:24px;}
+    .card{background:white; border-radius:16px; box-shadow:0 8px 30px rgba(2,6,23,.08); padding:24px; margin:16px 0;}
+    .btn{display:inline-block; padding:12px 18px; border-radius:999px; text-decoration:none; background:#0ea5e9; color:white; font-weight:700}
+    footer{padding:24px; text-align:center; color:#64748b}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="title">Cross-World UI Bridge</div>
+    <div class="tag">Control your Windows apps from a clean CLI. Local, secure, friendly.</div>
+  </header>
+  <div class="container">
+    <div class="card">
+      <h2>Download</h2>
+      <p>Build the installer via the included scripts. For now, run from source while you iterate.</p>
+      <a class="btn" href="https://github.com/">GitHub (coming soon)</a>
+    </div>
+    <div class="card">
+      <h2>Quick Start</h2>
+      <pre><code>python -m venv .venv
+. .venv/Scripts/activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 127.0.0.1 --port 5025 --reload</code></pre>
+    </div>
+    <div class="card">
+      <h2>Commands</h2>
+      <pre><code>ui doctor
+ui ping
+ui browser launch
+ui browser open https://example.com
+ui spotify login
+ui spotify play "lofi"
+ui word count "C:\path\to\doc.docx"
+ui window list
+ui window focus "Notepad"</code></pre>
+    </div>
+  </div>
+  <footer>MIT License • Not affiliated with Spotify/Microsoft/Google</footer>
+</body>
+</html>

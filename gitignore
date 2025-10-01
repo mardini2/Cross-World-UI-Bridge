@@ -1,0 +1,31 @@
+@'
+# venv & Python caches
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.python-version
+.mypy_cache/
+.pytest_cache/
+/.ruff_cache/
+coverage.xml
+.coverage
+
+# build artifacts
+build/
+dist/
+*.spec
+UIBridge-Windows.zip
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# local env
+.env
+'@ | Out-File -Encoding utf8 .gitignore

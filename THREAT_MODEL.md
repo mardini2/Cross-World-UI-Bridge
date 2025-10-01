@@ -1,0 +1,1 @@
+See threat model in your plan. Key risks mapped to mitigations: API token, CDP profile isolation, PKCE, keyring storage, no CORS.
