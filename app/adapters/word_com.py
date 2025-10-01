@@ -16,15 +16,16 @@ Notes:
 from __future__ import annotations
 
 import os
+from importlib import import_module
 from pathlib import Path
 from typing import Any, Optional
 
-# Import Word COM (pywin32) if available; keep module importable otherwise.
+# Runtime import of pywin32 client, typed as Any to support None fallback on non-Windows
+win32: Any
 try:
-    import win32com.client as _win32
+    win32 = import_module("win32com.client")
 except Exception:
-    _win32 = None
-win32: Any = _win32  # mypy: allow module-or-None
+    win32 = None  # keeps module importable even without pywin32/Windows
 
 # Allowed Word document extensions
 _ALLOWED_EXTS = {".doc", ".docx", ".rtf"}
@@ -57,7 +58,7 @@ def _validate_and_resolve_path(raw: str) -> Path:
 
     # 3) Reject illegal characters in any component
     for part in resolved.parts:
-        # Skip drive roots like "C:\"
+        # Skip drive roots like "C:\\"
         if part.endswith(":\\") or part in ("/", "\\"):
             continue
         if any(ch in _FORBIDDEN_CHARS for ch in part):
