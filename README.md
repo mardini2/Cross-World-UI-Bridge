@@ -21,11 +21,10 @@ python -m app.cli.cli browser launch
 python -m app.cli.cli browser open "https://example.com"
 python -m app.cli.cli browser tabs
 
-# spotify
-$env:SPOTIFY_CLIENT_ID="YOUR_CLIENT_ID"
-python -m app.cli.cli spotify login   # complete in browser
+# Spotify setup (per user, no secrets in repo)
+python -m app.cli.cli spotify config set-client-id "YOUR_CLIENT_ID"
+python -m app.cli.cli spotify login
 python -m app.cli.cli spotify play "lofi"
-python -m app.cli.cli spotify now
 
 # word
 python -m app.cli.cli word count "C:\path\to\doc.docx"
