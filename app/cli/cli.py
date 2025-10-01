@@ -5,17 +5,14 @@ Subcommands: doctor, token, ping, browser, spotify, word, window.
 
 import os
 import webbrowser
-import json
 import typer
 import httpx
 from loguru import logger
 from app.auth.secrets import get_or_create_token, reset_token, get_token
 from app.auth.spotify_config import set_client_id, get_client_id, clear_client_id
-from app.settings import UIB_PORT, UIB_HOST, SPOTIFY_CLIENT_ID
+from app.settings import UIB_PORT, UIB_HOST
 
 app = typer.Typer(help="UI Bridge CLI")
-
-# A sub-app just for Spotify
 spotify_app = typer.Typer(help="Spotify commands")
 
 
@@ -124,14 +121,13 @@ def spotify_play(query: str = typer.Argument(..., help='Text to search (e.g., "l
         timeout=15.0,
     )
     typer.echo(r.text)
-    # Friendly hint if it failed
     try:
         j = r.json()
         if j.get("ok") is False:
             typer.echo(
                 "Heads up: playback might fail if there is no active device or your account isn't Premium.\n"
                 "If the Spotify app isn't open, I try to launch it and wait briefly.\n"
-                "If it still fails, start playback on any device for a few seconds, then try again."
+                "If it still fails, start playback for a few seconds in the app, then try again."
             )
     except Exception:
         pass
@@ -144,7 +140,6 @@ def spotify_pause():
     typer.echo(r.text)
 
 
-# --- Spotify config (store Client ID in keyring) ---
 @spotify_app.command("config")
 def spotify_config(
     action: str = typer.Argument(..., help="set-client-id | show-client-id | clear-client-id"),
@@ -163,7 +158,7 @@ def spotify_config(
             tail = cid[-6:] if len(cid) > 6 else cid
             typer.echo(f"Client ID present. Tail: {tail}")
         else:
-            typer.echo("No Client ID set. Use: ui spotify config set-client-id \"YOUR_CLIENT_ID\"")
+            typer.echo('No Client ID set. Use: ui spotify config set-client-id "YOUR_CLIENT_ID"')
         return
     if action == "clear-client-id":
         clear_client_id()
@@ -172,7 +167,6 @@ def spotify_config(
     typer.echo("Unknown action. Use: set-client-id | show-client-id | clear-client-id")
 
 
-# Wire the spotify sub-app under the main CLI
 app.add_typer(spotify_app, name="spotify")
 
 
