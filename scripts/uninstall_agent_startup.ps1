@@ -10,9 +10,9 @@ $Startup  = [Environment]::GetFolderPath("Startup")
 $LocalApp = Join-Path $env:LOCALAPPDATA "UIBridge"
 
 $paths = @(
-  (Join-Path $Desktop "UI Bridge.lnk"),
-  (Join-Path $Programs "UI Bridge.lnk"),
-  (Join-Path $Startup "UI Bridge (auto-start).lnk")
+  (Join-Path $Desktop "UIBridge CLI.lnk"),
+  (Join-Path $Programs "UIBridge CLI.lnk"),
+  (Join-Path $Startup "UIBridge CLI (auto-start).lnk")
 )
 
 foreach ($p in $paths) { if (Test-Path $p) { Remove-Item $p -Force } }

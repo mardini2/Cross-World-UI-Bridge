@@ -1,4 +1,4 @@
-# Cross-World UI Bridge (Windows · Python)
+# UIBridge CLI (Windows)
 
 Control real GUI apps from a clean CLI. Bridge terminal ↔ GUI on Windows.
 

@@ -38,16 +38,16 @@ $StartMenu = [Environment]::GetFolderPath("StartMenu")
 $Programs = Join-Path $StartMenu "Programs"
 $Startup  = [Environment]::GetFolderPath("Startup")
 
-$DesktopLnk = Join-Path $Desktop "UI Bridge.lnk"
-$ProgramsLnk = Join-Path $Programs "UI Bridge.lnk"
-$StartupLnk = Join-Path $Startup "UI Bridge (auto-start).lnk"
+$DesktopLnk = Join-Path $Desktop "UIBridge CLI.lnk"
+$ProgramsLnk = Join-Path $Programs "UIBridge CLI.lnk"
+$StartupLnk = Join-Path $Startup "UIBridge CLI (auto-start).lnk"
 
 function New-Shortcut($target, $lnkPath, $workdir) {
   $sc = $Shell.CreateShortcut($lnkPath)
   $sc.TargetPath = $target
   $sc.WorkingDirectory = $workdir
   $sc.IconLocation = $target
-  $sc.Description = "Cross-World UI Bridge agent"
+  $sc.Description = "UIBridge CLI agent"
   $sc.Save()
 }
 

@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="UI Bridge Agent", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="UIBridge CLI Agent", version="1.0.0", lifespan=lifespan)
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -81,7 +81,7 @@ app.include_router(spotify_oauth_router)
 async def health() -> HealthResponse:
     return HealthResponse(
         status="ok",
-        name="UI Bridge Agent",
+        name="UIBridge CLI Agent",
         version=app.version or "0.0.0",
         time_utc=datetime.now(timezone.utc).isoformat(),
         port=UIB_PORT,
