@@ -11,7 +11,8 @@ import typer
 from loguru import logger
 
 from app.auth.secrets import get_or_create_token, get_token, reset_token
-from app.auth.spotify_config import clear_client_id, get_client_id, set_client_id
+from app.auth.spotify_config import (clear_client_id, get_client_id,
+                                     set_client_id)
 from app.settings import UIB_HOST, UIB_PORT
 
 app = typer.Typer(help="UI Bridge CLI")

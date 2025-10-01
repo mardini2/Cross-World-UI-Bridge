@@ -14,16 +14,11 @@ from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import String, Text
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
+from sqlalchemy.ext.asyncio import (AsyncEngine, AsyncSession,
+                                    async_sessionmaker, create_async_engine)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.settings import DB_PATH
-
 
 # --- Declarative base with proper typing -------------------------------------
 
