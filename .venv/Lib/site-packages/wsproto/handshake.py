@@ -4,9 +4,9 @@ wsproto/handshake
 
 An implementation of WebSocket handshakes.
 """
+
 from collections import deque
 from typing import (
-    cast,
     Deque,
     Dict,
     Generator,
@@ -15,6 +15,7 @@ from typing import (
     Optional,
     Sequence,
     Union,
+    cast,
 )
 
 import h11
@@ -24,11 +25,11 @@ from .events import AcceptConnection, Event, RejectConnection, RejectData, Reque
 from .extensions import Extension
 from .typing import Headers
 from .utilities import (
+    LocalProtocolError,
+    RemoteProtocolError,
     generate_accept_token,
     generate_nonce,
-    LocalProtocolError,
     normed_header_dict,
-    RemoteProtocolError,
     split_comma_header,
 )
 

@@ -7,7 +7,8 @@ import uiautomation as auto
 
 
 def usage():
-    auto.Logger.ColorfullyWrite("""usage
+    auto.Logger.ColorfullyWrite(
+        """usage
 <Color=Cyan>-h</Color>      show command <Color=Cyan>help</Color>
 <Color=Cyan>-t</Color>      delay <Color=Cyan>time</Color>, default 3 seconds, begin to enumerate after Value seconds, this must be an integer
         you can delay a few seconds and make a window active so automation can enumerate the active window
@@ -31,15 +32,37 @@ automation.py -t3
 automation.py -t3 -r -d1 -m -n
 automation.py -c -t3
 
-""", writeToFile=False)
+""",
+        writeToFile=False,
+    )
 
 
 def main():
     import getopt
-    auto.Logger.Write('UIAutomation {} (Python {}.{}.{}, {} bit)\n'.format(auto.VERSION, sys.version_info.major, sys.version_info.minor, sys.version_info.micro, 64 if sys.maxsize > 0xFFFFFFFF else 32))
-    options, args = getopt.getopt(sys.argv[1:], 'hrfcanpd:t:',
-                                  ['help', 'root', 'focus', 'cursor', 'ancestor', 'showAllName', 'depth=',
-                                   'time='])
+
+    auto.Logger.Write(
+        "UIAutomation {} (Python {}.{}.{}, {} bit)\n".format(
+            auto.VERSION,
+            sys.version_info.major,
+            sys.version_info.minor,
+            sys.version_info.micro,
+            64 if sys.maxsize > 0xFFFFFFFF else 32,
+        )
+    )
+    options, args = getopt.getopt(
+        sys.argv[1:],
+        "hrfcanpd:t:",
+        [
+            "help",
+            "root",
+            "focus",
+            "cursor",
+            "ancestor",
+            "showAllName",
+            "depth=",
+            "time=",
+        ],
+    )
     root = False
     focus = False
     cursor = False
@@ -49,34 +72,40 @@ def main():
     depth = 0xFFFFFFFF
     seconds = 3
     showPid = False
-    for (o, v) in options:
-        if o in ('-h', '-help'):
+    for o, v in options:
+        if o in ("-h", "-help"):
             usage()
             sys.exit(0)
-        elif o in ('-r', '-root'):
+        elif o in ("-r", "-root"):
             root = True
             foreground = False
-        elif o in ('-f', '-focus'):
+        elif o in ("-f", "-focus"):
             focus = True
             foreground = False
-        elif o in ('-c', '-cursor'):
+        elif o in ("-c", "-cursor"):
             cursor = True
             foreground = False
-        elif o in ('-a', '-ancestor'):
+        elif o in ("-a", "-ancestor"):
             ancestor = True
             foreground = False
-        elif o in ('-n', '-showAllName'):
+        elif o in ("-n", "-showAllName"):
             showAllName = True
-        elif o in ('-p', ):
+        elif o in ("-p",):
             showPid = True
-        elif o in ('-d', '-depth'):
+        elif o in ("-d", "-depth"):
             depth = int(v)
-        elif o in ('-t', '-time'):
+        elif o in ("-t", "-time"):
             seconds = int(v)
     if seconds > 0:
-        auto.Logger.Write('please wait for {0} seconds\n\n'.format(seconds), writeToFile=False)
+        auto.Logger.Write(
+            "please wait for {0} seconds\n\n".format(seconds), writeToFile=False
+        )
         time.sleep(seconds)
-    auto.Logger.ColorfullyLog('Starts, Current Cursor Position: <Color=Cyan>{}</Color>'.format(auto.GetCursorPos()))
+    auto.Logger.ColorfullyLog(
+        "Starts, Current Cursor Position: <Color=Cyan>{}</Color>".format(
+            auto.GetCursorPos()
+        )
+    )
     control = None
     if root:
         control = auto.GetRootControl()
@@ -94,7 +123,10 @@ def main():
         if control:
             auto.EnumAndLogControlAncestors(control, showAllName, showPid)
         else:
-            auto.Logger.Write('IUIAutomation returns null element under cursor\n', auto.ConsoleColor.Yellow)
+            auto.Logger.Write(
+                "IUIAutomation returns null element under cursor\n",
+                auto.ConsoleColor.Yellow,
+            )
     else:
         indent = 0
         if not control:
@@ -111,8 +143,8 @@ def main():
                     indent = 1
                     auto.LogControl(controlList[0], 0, showAllName, showPid)
         auto.EnumAndLogControl(control, depth, showAllName, showPid, startDepth=indent)
-    auto.Logger.Log('Ends\n')
+    auto.Logger.Log("Ends\n")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

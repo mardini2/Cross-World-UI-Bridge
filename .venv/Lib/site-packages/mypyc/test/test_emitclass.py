@@ -9,7 +9,14 @@ from mypyc.namegen import NameGenerator
 
 class TestEmitClass(unittest.TestCase):
     def test_slot_key(self) -> None:
-        attrs = ["__add__", "__radd__", "__rshift__", "__rrshift__", "__setitem__", "__delitem__"]
+        attrs = [
+            "__add__",
+            "__radd__",
+            "__rshift__",
+            "__rrshift__",
+            "__setitem__",
+            "__delitem__",
+        ]
         s = sorted(attrs, key=lambda x: slot_key(x))
         # __delitem__ and reverse methods should come last.
         assert s == [
