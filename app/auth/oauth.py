@@ -7,13 +7,16 @@ import base64
 import hashlib
 import os
 import secrets
-import httpx
 from typing import Optional
+
+import httpx
+import keyring
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
+
+from app.auth.spotify_config import \
+    get_client_id  # NEW: keyring-based client ID
 from app.settings import SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT
-from app.auth.spotify_config import get_client_id  # NEW: keyring-based client ID
-import keyring
 
 router = APIRouter(prefix="/auth/spotify", tags=["auth:spotify"])
 
@@ -84,7 +87,9 @@ async def login(request: Request):
     resp_html = f'<a href="{url}">Continue to Spotify login…</a><script>location.href="{url}"</script>'
 
     resp = HTMLResponse(resp_html)
-    resp.set_cookie("pkce_verifier", verifier, max_age=300, httponly=True, samesite="lax")
+    resp.set_cookie(
+        "pkce_verifier", verifier, max_age=300, httponly=True, samesite="lax"
+    )
     resp.set_cookie("oauth_state", state, max_age=300, httponly=True, samesite="lax")
     return resp
 

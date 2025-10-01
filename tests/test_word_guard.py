@@ -1,6 +1,7 @@
 """
 Goal: Word COM test (guarded) — only asserts import path; we can't guarantee Word is installed here.
 """
+
 import pytest
 
 

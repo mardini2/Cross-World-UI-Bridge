@@ -1,7 +1,9 @@
 """
 Goal: Wrapper around browser CDP adapter for the API layer.
 """
-from app.adapters.browser_cdp import open_url as cdp_open_url, launch_edge_with_cdp, list_tabs
+
+from app.adapters.browser_cdp import launch_edge_with_cdp, list_tabs
+from app.adapters.browser_cdp import open_url as cdp_open_url
 
 
 async def open_in_browser(url: str) -> bool:

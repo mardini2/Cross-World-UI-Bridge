@@ -1,8 +1,10 @@
 """
 Goal: Use Word COM to compute word count. This is Windows-only.
 """
+
 import os
 from typing import Optional
+
 try:
     import win32com.client as win32
 except Exception:
@@ -14,7 +16,9 @@ def word_count(path: Optional[str] = None) -> int:
     If a path is provided, open the document silently; otherwise use the active document if available.
     """
     if win32 is None:
-        raise RuntimeError("win32com is not available. Install pywin32 and run on Windows.")
+        raise RuntimeError(
+            "win32com is not available. Install pywin32 and run on Windows."
+        )
     word = win32.Dispatch("Word.Application")
     word.Visible = False
     doc = None

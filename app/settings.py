@@ -2,6 +2,7 @@
 Goal: Centralized configuration for the app (paths, ports, feature flags).
 Comments aim to be friendly and clear rather than formal.
 """
+
 import os
 from pathlib import Path
 
@@ -16,7 +17,9 @@ UIB_PORT = int(os.getenv("UIB_PORT", "5025"))
 UIB_HOST = os.getenv("UIB_HOST", "127.0.0.1")
 
 # Feature flags to keep "spicy" things under your control
-ALLOW_INPUT_INJECTION = os.getenv("UIB_ALLOW_INPUT_INJECTION", "false").lower() == "true"
+ALLOW_INPUT_INJECTION = (
+    os.getenv("UIB_ALLOW_INPUT_INJECTION", "false").lower() == "true"
+)
 ENABLE_TELEMETRY = os.getenv("UIB_ENABLE_TELEMETRY", "false").lower() == "true"
 
 # Spotify OAuth (you must set SPOTIFY_CLIENT_ID in your env; secret is not needed for PKCE)

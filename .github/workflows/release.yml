@@ -6,6 +6,10 @@ on:
       - "v*.*.*"
   workflow_dispatch:
 
+# allow creating releases
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -49,7 +53,9 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            UIBridge-Windows.zip
+          files: UIBridge-Windows.zip
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -4,6 +4,7 @@ So the project works for anyone without hard-coding IDs in the repo.
 """
 
 from typing import Optional
+
 import keyring
 
 # One service bucket for all Spotify-related secrets for this app

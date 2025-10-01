@@ -10,9 +10,10 @@ Notes:
 - We never log tokens or secrets.
 """
 
-from typing import Optional, List, Dict
 import os
 import time
+from typing import Dict, List, Optional
+
 import httpx
 import keyring
 
@@ -73,7 +74,9 @@ def _pick_device(devs: List[Dict]) -> Optional[str]:
     return (devs[0] or {}).get("id")
 
 
-async def _ensure_device(client: httpx.AsyncClient, token: str, wait_seconds: float = 8.0) -> Optional[str]:
+async def _ensure_device(
+    client: httpx.AsyncClient, token: str, wait_seconds: float = 8.0
+) -> Optional[str]:
     devs = await _get_devices(client, token)
     choice = _pick_device(devs)
     if choice:
@@ -91,7 +94,9 @@ async def _ensure_device(client: httpx.AsyncClient, token: str, wait_seconds: fl
     return None
 
 
-async def _transfer_playback(client: httpx.AsyncClient, token: str, device_id: str, play: bool = True) -> bool:
+async def _transfer_playback(
+    client: httpx.AsyncClient, token: str, device_id: str, play: bool = True
+) -> bool:
     r = await client.put(
         f"{API_BASE}/me/player",
         headers=_headers(token),
@@ -111,7 +116,12 @@ async def list_devices() -> List[Dict]:
     async with httpx.AsyncClient(timeout=10.0) as client:
         devs = await _get_devices(client, token)
         return [
-            {"id": d.get("id"), "name": d.get("name"), "type": d.get("type"), "is_active": d.get("is_active", False)}
+            {
+                "id": d.get("id"),
+                "name": d.get("name"),
+                "type": d.get("type"),
+                "is_active": d.get("is_active", False),
+            }
             for d in devs
         ]
 
@@ -122,7 +132,9 @@ async def now_playing() -> dict:
         return {"error": "not_linked"}
 
     async with httpx.AsyncClient(timeout=10.0) as client:
-        r = await client.get(f"{API_BASE}/me/player/currently-playing", headers=_headers(token))
+        r = await client.get(
+            f"{API_BASE}/me/player/currently-playing", headers=_headers(token)
+        )
         if r.status_code == 204:
             return {"is_playing": False}
         if r.status_code == 403:
@@ -131,8 +143,14 @@ async def now_playing() -> dict:
             return {"error": f"spotify_{r.status_code}"}
         j = r.json() or {}
         item = j.get("item") or {}
-        artists = ", ".join([a.get("name", "") for a in (item.get("artists") or [])]) or None
-        return {"is_playing": j.get("is_playing", False), "artist": artists, "track": item.get("name")}
+        artists = (
+            ", ".join([a.get("name", "") for a in (item.get("artists") or [])]) or None
+        )
+        return {
+            "is_playing": j.get("is_playing", False),
+            "artist": artists,
+            "track": item.get("name"),
+        }
 
 
 async def pause() -> bool:
@@ -153,7 +171,9 @@ async def pause() -> bool:
             ok = await _transfer_playback(client, token, dev, play=False)
             if not ok:
                 return False
-            r2 = await client.put(f"{API_BASE}/me/player/pause", headers=_headers(token))
+            r2 = await client.put(
+                f"{API_BASE}/me/player/pause", headers=_headers(token)
+            )
             return r2.status_code in (200, 204)
         return False
 
@@ -190,5 +210,7 @@ async def play_query(query: str) -> bool:
         if not ok:
             return False
 
-        r2 = await client.put(f"{API_BASE}/me/player/play", headers=_headers(token), json={"uris": [uri]})
+        r2 = await client.put(
+            f"{API_BASE}/me/player/play", headers=_headers(token), json={"uris": [uri]}
+        )
         return r2.status_code in (200, 204)

@@ -4,36 +4,32 @@ Endpoints include health, ping, browser (CDP), Spotify, Word COM, and UI automat
 This version uses FastAPI's lifespan hooks (startup/shutdown) to avoid deprecation warnings.
 """
 
-from fastapi import FastAPI, Request, Body
-from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette import status
-from datetime import datetime, timezone
 from contextlib import asynccontextmanager
-from loguru import logger
+from datetime import datetime, timezone
 
-from app.settings import UIB_PORT
-from app.services.logs import configure_logging
-from app.auth.secrets import get_or_create_token
-from app.models.schemas import (
-    HealthResponse,
-    ErrorResponse,
-    PingResponse,
-    BrowserOpenRequest,
-    BrowserOpenResponse,
-    SpotifyPlayRequest,
-    SpotifyNowResponse,
-    WordCountResponse,
-    WindowListResponse,
-    WindowListItem,
-    FocusRequest,
-)
-from app.services.browser_service import open_in_browser, launch_edge, get_tabs
-from app.services.spotify_service import now as sp_now, play as sp_play, pause as sp_pause
-from app.services.word_service import count_words
-from app.services.ui_auto_service import windows as list_windows, focus as focus_window
-from app.db import init_db
+from fastapi import Body, FastAPI, Request
+from fastapi.responses import JSONResponse
+from loguru import logger
+from starlette import status
+from starlette.middleware.base import BaseHTTPMiddleware
+
 from app.auth.oauth import router as spotify_oauth_router
+from app.auth.secrets import get_or_create_token
+from app.db import init_db
+from app.models.schemas import (BrowserOpenRequest, BrowserOpenResponse,
+                                ErrorResponse, FocusRequest, HealthResponse,
+                                PingResponse, SpotifyNowResponse,
+                                SpotifyPlayRequest, WindowListItem,
+                                WindowListResponse, WordCountResponse)
+from app.services.browser_service import get_tabs, launch_edge, open_in_browser
+from app.services.logs import configure_logging
+from app.services.spotify_service import now as sp_now
+from app.services.spotify_service import pause as sp_pause
+from app.services.spotify_service import play as sp_play
+from app.services.ui_auto_service import focus as focus_window
+from app.services.ui_auto_service import windows as list_windows
+from app.services.word_service import count_words
+from app.settings import UIB_PORT
 
 configure_logging()
 
@@ -50,7 +46,9 @@ app = FastAPI(title="UI Bridge Agent", version="1.0.0", lifespan=lifespan)
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.url.path.startswith("/health") or request.url.path.startswith("/auth/spotify"):
+        if request.url.path.startswith("/health") or request.url.path.startswith(
+            "/auth/spotify"
+        ):
             return await call_next(request)
         header = request.headers.get("X-UIB-Token")
         token = get_or_create_token()
@@ -113,7 +111,11 @@ async def browser_tabs() -> dict:
 @app.get("/v1/spotify/now", response_model=SpotifyNowResponse)
 async def spotify_now() -> SpotifyNowResponse:
     d = await sp_now()
-    return SpotifyNowResponse(artist=d.get("artist"), track=d.get("track"), is_playing=d.get("is_playing", False))
+    return SpotifyNowResponse(
+        artist=d.get("artist"),
+        track=d.get("track"),
+        is_playing=d.get("is_playing", False),
+    )
 
 
 @app.post("/v1/spotify/play")

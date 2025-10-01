@@ -1,7 +1,9 @@
 """
 Goal: Prove that /health is open and /v1/ping requires the header.
 """
+
 from fastapi.testclient import TestClient
+
 from app.main import app
 
 client = TestClient(app)

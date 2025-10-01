@@ -1,51 +1,262 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>UI Bridge</title>
+  <title>Cross-World UI Bridge</title>
+
+  <!--
+    Goal: simple, cozy landing page for the project.
+    - Warm palette, soft shadows, rounded corners
+    - No external libs so it works on GitHub Pages out of the box
+    - Handy copy buttons on code blocks
+  -->
+
   <style>
-    body{font-family: ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial; margin:0; color:#0f172a;}
-    header{padding:48px 24px; background:linear-gradient(135deg,#0ea5e9,#6366f1); color:white;}
-    header .title{font-size:36px; font-weight:800; letter-spacing:.5px;}
-    header .tag{opacity:.95; margin-top:8px}
-    .container{max-width:920px; margin:0 auto; padding:24px;}
-    .card{background:white; border-radius:16px; box-shadow:0 8px 30px rgba(2,6,23,.08); padding:24px; margin:16px 0;}
-    .btn{display:inline-block; padding:12px 18px; border-radius:999px; text-decoration:none; background:#0ea5e9; color:white; font-weight:700}
-    footer{padding:24px; text-align:center; color:#64748b}
+    /* ---------- Cozy palette & tokens ---------- */
+    :root{
+      --bg: #fff8f2;            /* peach-cream */
+      --bg-accent: #fff1e6;     /* lighter peach */
+      --ink: #2a2320;           /* warm charcoal */
+      --muted: #6b5e57;         /* cocoa */
+      --card: #fffaf7;          /* off-white card */
+      --border: #f0ddd3;        /* soft border */
+      --accent: #e48a6a;        /* coral */
+      --accent-2: #f2a97a;      /* apricot */
+      --accent-3: #e66d7a;      /* rose */
+      --btn-ink: #281c18;       /* darker text for buttons */
+      --ring: rgba(228,138,106,.45);
+      --shadow: 0 12px 30px rgba(90, 53, 37, .12);
+      --radius: 18px;
+      --radius-pill: 999px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg: #1e1916;          /* warm near-black */
+        --bg-accent: #241e1a;
+        --ink: #f5ede7;         /* warm white */
+        --muted: #c9bdb5;
+        --card: #2a221e;
+        --border: #3a302a;
+        --accent: #ff9e7f;
+        --accent-2: #f5b185;
+        --accent-3: #ff7c8b;
+        --btn-ink: #1b1310;
+        --ring: rgba(255,158,127,.35);
+        --shadow: 0 12px 30px rgba(0,0,0,.35);
+      }
+    }
+
+    /* ---------- Layout ---------- */
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      color:var(--ink);
+      background:
+        radial-gradient(1200px 600px at -10% -10%, var(--bg-accent), transparent 60%),
+        radial-gradient(900px 600px at 110% -20%,  #ffe6dc, transparent 55%),
+        radial-gradient(800px 500px at 120% 120%, #ffe3ea, transparent 45%),
+        var(--bg);
+    }
+
+    header{
+      padding:56px 22px 46px;
+      color:#2a120c;
+      background:
+        linear-gradient(135deg, rgba(255, 221, 200, .95), rgba(255, 184, 184, .9)),
+        radial-gradient(1000px 600px at 0% 0%, #ffd9c7 0%, transparent 60%);
+      border-bottom:1px solid var(--border);
+    }
+    .wrap{max-width:1020px; margin:0 auto; padding:0 22px}
+    .hero{
+      display:flex; gap:28px; align-items:center; justify-content:space-between; flex-wrap:wrap;
+    }
+    .title{font-size:40px; font-weight:900; letter-spacing:.2px;}
+    .tag{font-size:18px; color:#4a2d26; opacity:.95; margin-top:8px}
+    .cta{display:flex; gap:12px; margin-top:18px; flex-wrap:wrap}
+
+    .btn{
+      display:inline-flex; align-items:center; gap:10px;
+      padding:12px 18px; border-radius:var(--radius-pill);
+      text-decoration:none; font-weight:800; box-shadow: var(--shadow);
+      border:1px solid rgba(0,0,0,.06);
+      transition: transform .06s ease, box-shadow .2s ease, background-color .2s ease;
+      user-select:none;
+    }
+    .btn:hover{transform: translateY(-1px)}
+    .btn:focus-visible{outline:3px solid var(--ring); outline-offset:2px}
+    .btn.primary{background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%); color:var(--btn-ink)}
+    .btn.secondary{background: var(--card); color:var(--ink)}
+    .btn .emoji{filter:saturate(1.1)}
+    .note{
+  font-size:13px;
+  color:#2a2320; /* dark, matches --ink */
+  font-weight:600;
+  margin-top:8px;
+}
+
+    main{padding:28px 0 60px}
+    .grid{
+      display:grid; gap:20px; grid-template-columns:repeat(12, 1fr);
+    }
+    .card{
+      grid-column: span 12;
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow: var(--shadow);
+      padding:22px;
+    }
+    @media (min-width: 900px){
+      .card.split{grid-column: span 7}
+      .card.side {grid-column: span 5}
+    }
+    .card h2{margin:0 0 6px 0; font-size:22px}
+    .card p{margin:0 0 12px 0; color:var(--muted)}
+    .list{margin:6px 0 0 0; padding:0; list-style:none}
+    .list li{padding:6px 0}
+
+    /* ---------- Code blocks with copy ---------- */
+    pre{
+      margin:12px 0 0; position:relative; background:var(--bg-accent);
+      border:1px dashed var(--border); border-radius:14px; padding:14px 16px 14px 16px;
+      overflow:auto;
+    }
+    code{font-family:var(--mono); font-size:13.5px; line-height:1.5}
+    .copy{
+      position:absolute; right:10px; top:10px; border:1px solid var(--border);
+      border-radius:12px; background:linear-gradient(180deg, #fff, #ffece6);
+      color:#5e433a; font-weight:700; padding:6px 10px; cursor:pointer;
+      box-shadow: var(--shadow);
+    }
+    .copy:active{transform: translateY(1px)}
+
+    /* ---------- Footer ---------- */
+    footer{
+      padding:22px; text-align:center; color:var(--muted);
+      border-top:1px solid var(--border);
+      background:linear-gradient(180deg, transparent, rgba(0,0,0,.02));
+    }
+
+    /* tiny chips */
+    .chip{
+      display:inline-block; padding:6px 10px; border-radius:12px;
+      background:rgba(228,138,106,.12); color:#6c463b; font-weight:700; font-size:12px;
+      border:1px solid rgba(228,138,106,.25);
+    }
   </style>
 </head>
 <body>
   <header>
-    <div class="title">Cross-World UI Bridge</div>
-    <div class="tag">Control your Windows apps from a clean CLI. Local, secure, friendly.</div>
+    <div class="wrap hero">
+      <div>
+        <div class="title">Cross-World UI Bridge</div>
+        <div class="tag">Control your Windows apps from a clean CLI — cozy, local, secure.</div>
+        <div class="cta">
+          <a class="btn primary" href="https://github.com/mardini2/Cross-World-UI-Bridge/releases/latest">
+            <span class="emoji">⬇️</span> Download for Windows
+          </a>
+          <a class="btn secondary" href="https://github.com/mardini2/Cross-World-UI-Bridge">
+            <span class="emoji">🌐</span> View on GitHub
+          </a>
+        </div>
+        <div class="note">Not affiliated with Spotify/Microsoft/Google <span class="chip">Windows Only</span></div>
+      </div>
+    </div>
   </header>
-  <div class="container">
-    <div class="card">
-      <h2>Download</h2>
-      <p>Build the installer via the included scripts. For now, run from source while you iterate.</p>
-      <a class="btn" href="https://github.com/">GitHub (coming soon)</a>
+
+  <main>
+    <div class="wrap grid">
+      <!-- Download / What’s inside -->
+      <section class="card split">
+        <h2>What you get</h2>
+        <p>A small local agent (FastAPI) + a friendly CLI to drive Chrome, Edge (CDP), Spotify, Microsoft Word (COM), and basic window focus.</p>
+        <ul class="list">
+          <li>    <strong>Local API</strong> (token-protected)</li>
+          <li>    <strong>Browser control</strong> via Edge/Chrome DevTools</li>
+          <li>    <strong>Spotify</strong> PKCE OAuth, play/pause/now</li>
+          <li>    <strong>Word</strong> word-count via COM (Windows)</li>
+          <li>    <strong>Windows UI</strong> list & focus windows</li>
+        </ul>
+      </section>
+
+      <!-- Quick Start -->
+      <section class="card side">
+        <h2>Quick Start (Dev)</h2>
+        <pre><button class="copy" data-copy="#qs">Copy</button><code id="qs">py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install --upgrade setuptools wheel
+python -m pip install -r requirements.txt
+
+uvicorn app.main:app --host 127.0.0.1 --port 5025 --reload
+
+# new terminal
+python -m app.cli.cli doctor
+python -m app.cli.cli ping</code></pre>
+      </section>
+
+      <!-- Commands -->
+      <section class="card">
+        <h2>Common Commands</h2>
+        <pre><button class="copy" data-copy="#cmds">Copy</button><code id="cmds"># Browser (Edge via CDP)
+python -m app.cli.cli browser launch
+python -m app.cli.cli browser open "https://example.com"
+python -m app.cli.cli browser tabs
+
+# Spotify (per-user Client ID; no secrets in repo)
+python -m app.cli.cli spotify config set-client-id "YOUR_CLIENT_ID"
+python -m app.cli.cli spotify login
+python -m app.cli.cli spotify play "a moment apart odesza"
+python -m app.cli.cli spotify now
+python -m app.cli.cli spotify pause
+
+# Word COM
+python -m app.cli.cli word count "C:\Path\To\Your.docx"
+
+# Windows UI
+python -m app.cli.cli window list
+python -m app.cli.cli window focus "Notepad"</code></pre>
+      </section>
+
+      <!-- CI & Pages -->
+      <section class="card">
+        <h2>CI & Site</h2>
+        <p>Windows CI builds an EXE artifact on every push. GitHub Pages hosts this page from <code>web-static/</code>.</p>
+        <ul class="list">
+          <li>    Lint, type-check, tests, and EXE build in Actions</li>
+          <li>    Tagged releases publish a zipped EXE</li>
+          <li>    This page deploys via <strong>Pages</strong> workflow</li>
+        </ul>
+      </section>
     </div>
-    <div class="card">
-      <h2>Quick Start</h2>
-      <pre><code>python -m venv .venv
-. .venv/Scripts/activate
-pip install -r requirements.txt
-uvicorn app.main:app --host 127.0.0.1 --port 5025 --reload</code></pre>
-    </div>
-    <div class="card">
-      <h2>Commands</h2>
-      <pre><code>ui doctor
-ui ping
-ui browser launch
-ui browser open https://example.com
-ui spotify login
-ui spotify play "lofi"
-ui word count "C:\path\to\doc.docx"
-ui window list
-ui window focus "Notepad"</code></pre>
-    </div>
-  </div>
-  <footer>MIT License • Not affiliated with Spotify/Microsoft/Google</footer>
+  </main>
+
+  <footer>
+    © <span id="y"></span> Cross-World UI Bridge • MIT License
+  </footer>
+
+  <script>
+    // Copy buttons for code blocks
+    for (const btn of document.querySelectorAll('.copy')){
+      btn.addEventListener('click', () => {
+        const sel = btn.getAttribute('data-copy');
+        const el = document.querySelector(sel);
+        if(!el) return;
+        navigator.clipboard.writeText(el.textContent.trim()).then(()=>{
+          const old = btn.textContent;
+          btn.textContent = 'Copied!';
+          setTimeout(()=> btn.textContent = old, 1200);
+        });
+      });
+    }
+    // Year in footer
+    document.getElementById('y').textContent = new Date().getFullYear();
+  </script>
 </body>
 </html>

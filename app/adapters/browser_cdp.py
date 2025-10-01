@@ -3,8 +3,8 @@ Goal: Control Chromium browsers via DevTools Protocol (CDP) on localhost:9222.
 We keep it modest: launch Edge with debugging, open URL, list tabs.
 """
 
-import os
 import json
+import os
 import subprocess
 from typing import List, Optional
 
@@ -68,18 +68,26 @@ async def open_url(url: str) -> bool:
         return False
     try:
         async with websockets.connect(ws) as conn:
-            await conn.send(json.dumps({
-                "id": 1,
-                "method": "Target.setDiscoverTargets",
-                "params": {"discover": True},
-            }))
+            await conn.send(
+                json.dumps(
+                    {
+                        "id": 1,
+                        "method": "Target.setDiscoverTargets",
+                        "params": {"discover": True},
+                    }
+                )
+            )
             await conn.recv()
 
-            await conn.send(json.dumps({
-                "id": 2,
-                "method": "Target.createTarget",
-                "params": {"url": url},
-            }))
+            await conn.send(
+                json.dumps(
+                    {
+                        "id": 2,
+                        "method": "Target.createTarget",
+                        "params": {"url": url},
+                    }
+                )
+            )
             await conn.recv()
             return True
     except Exception:
