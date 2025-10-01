@@ -7,7 +7,7 @@ pydantic~=2.9
 websockets~=12.0
 python-socketio~=5.11
 tenacity~=8.5
-rich~=13.9
+rich~=14.1
 loguru~=0.7
 pywin32>=306; platform_system=="Windows"
 pywinauto>=0.6.9; platform_system=="Windows"
