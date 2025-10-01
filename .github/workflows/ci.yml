@@ -7,7 +7,6 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
-# cancel older runs on the same ref
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -38,8 +37,7 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
-      # pin tool versions so local and CI match
-      - name: Install tooling
+      - name: Install tooling (pin versions)
         run: python -m pip install black==24.8.0 ruff==0.6.9 isort==5.13.2 mypy==1.11.2 pytest
 
       - name: Lint (ruff)
@@ -86,10 +84,32 @@ jobs:
       - name: Build CLI EXE (ui)
         run: pyinstaller --noconfirm --clean --name ui --version-file installer/version_info.txt app/cli/entry.py
 
-      - name: Upload EXE artifacts
+      - name: Prepare Windows package folder (CI artifact)
+        shell: pwsh
+        run: |
+          $pkg = "UIBridge-Windows"
+          if (Test-Path $pkg) { Remove-Item -Recurse -Force $pkg }
+          New-Item -ItemType Directory -Force $pkg | Out-Null
+
+          Copy-Item -Recurse -Force "dist\UIBridge" "$pkg\UIBridge"
+          Copy-Item -Recurse -Force "dist\ui" "$pkg\ui"
+
+          Set-Content -Encoding ascii "$pkg\Open UIBridge CLI.cmd" @(
+            '@echo off',
+            'cd /d "%~dp0ui"',
+            'start "" cmd /k ui.exe --help'
+          )
+          Set-Content -Encoding ascii "$pkg\Start UIBridge Agent.cmd" @(
+            '@echo off',
+            'cd /d "%~dp0UIBridge"',
+            'start "" UIBridge.exe'
+          )
+
+          Copy-Item -Force "scripts\install_agent_startup.ps1" "$pkg\install_agent_startup.ps1"
+          Copy-Item -Force "scripts\uninstall_agent_startup.ps1" "$pkg\uninstall_agent_startup.ps1"
+
+      - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: UIBridge-exe
-          path: |
-            dist/UIBridge/UIBridge.exe
-            dist/ui/ui.exe
+          name: UIBridge-Windows
+          path: UIBridge-Windows

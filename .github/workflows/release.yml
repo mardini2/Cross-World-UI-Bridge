@@ -6,11 +6,9 @@ on:
       - "v*.*.*"
   workflow_dispatch:
 
-# allow creating releases with the workflow token
 permissions:
   contents: write
 
-# cancel older runs for the same tag
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
@@ -39,7 +37,7 @@ jobs:
           if (Test-Path .\dist) { Remove-Item -Recurse -Force .\dist }
           if (Test-Path .\build) { Remove-Item -Recurse -Force .\build }
           if (Test-Path .\UIBridge.spec) { Remove-Item -Force .\UIBridge.spec }
-          if (Test-Path .\ui.spec) { Remove-Item -Force .\ui.spec } 
+          if (Test-Path .\ui.spec) { Remove-Item -Force .\ui.spec }
 
       - name: Build agent EXE with PyInstaller
         run: pyinstaller --noconfirm --clean --noconsole --name UIBridge --version-file installer/version_info.txt app/main.py
@@ -47,11 +45,39 @@ jobs:
       - name: Build CLI EXE (ui)
         run: pyinstaller --noconfirm --clean --name ui --version-file installer/version_info.txt app/cli/entry.py
 
-      - name: Archive EXEs
+      # Package the full onedir folders + helper launchers + installer scripts
+      - name: Prepare Windows package folder
+        shell: pwsh
         run: |
-          powershell Compress-Archive -Path "dist\\UIBridge\\UIBridge.exe","dist\\ui\\ui.exe" -DestinationPath "UIBridge-Windows.zip" -Force
+          $pkg = "UIBridge-Windows"
+          if (Test-Path $pkg) { Remove-Item -Recurse -Force $pkg }
+          New-Item -ItemType Directory -Force $pkg | Out-Null
 
-      - name: Upload artifacts for this run
+          Copy-Item -Recurse -Force "dist\UIBridge" "$pkg\UIBridge"
+          Copy-Item -Recurse -Force "dist\ui" "$pkg\ui"
+
+          # Write helper launchers without here-strings (YAML-safe)
+          Set-Content -Encoding ascii "$pkg\Open UIBridge CLI.cmd" @(
+            '@echo off',
+            'cd /d "%~dp0ui"',
+            'start "" cmd /k ui.exe --help'
+          )
+          Set-Content -Encoding ascii "$pkg\Start UIBridge Agent.cmd" @(
+            '@echo off',
+            'cd /d "%~dp0UIBridge"',
+            'start "" UIBridge.exe'
+          )
+
+          Copy-Item -Force "scripts\install_agent_startup.ps1" "$pkg\install_agent_startup.ps1"
+          Copy-Item -Force "scripts\uninstall_agent_startup.ps1" "$pkg\uninstall_agent_startup.ps1"
+
+      - name: Archive Windows package
+        shell: pwsh
+        run: |
+          if (Test-Path "UIBridge-Windows.zip") { Remove-Item -Force "UIBridge-Windows.zip" }
+          Compress-Archive -Path "UIBridge-Windows\*" -DestinationPath "UIBridge-Windows.zip" -Force
+
+      - name: Upload artifact for publish job
         uses: actions/upload-artifact@v4
         with:
           name: UIBridge-zip
