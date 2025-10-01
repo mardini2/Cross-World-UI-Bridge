@@ -21,6 +21,6 @@ pytest-asyncio~=0.23
 pytest-mock~=3.14
 mypy~=1.11
 ruff~=0.6
-black~=24.8
+black~=25.9
 isort~=5.13
 pyinstaller~=6.9
