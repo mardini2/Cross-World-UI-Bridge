@@ -39,6 +39,6 @@ jobs:
           ruff check app tests --fix || true
 
       - name: Commit changes back to PR
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v6
         with:
           commit_message: "chore: auto-format (black/isort/ruff) for Dependabot PR"
