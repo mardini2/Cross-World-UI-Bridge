@@ -19,14 +19,12 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-# Annotate as Any so assigning either the imported module or None is valid to mypy
-win32: Any
+# Import Word COM (pywin32) if available; keep module importable otherwise.
 try:
-    import win32com.client as _win32  # type: ignore[import-not-found]
-
-    win32 = _win32
+    import win32com.client as _win32
 except Exception:
-    win32 = None  # keeps module importable on non-Windows or without pywin32
+    _win32 = None
+win32: Any = _win32  # mypy: allow module-or-None
 
 # Allowed Word document extensions
 _ALLOWED_EXTS = {".doc", ".docx", ".rtf"}
