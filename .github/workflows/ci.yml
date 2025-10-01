@@ -62,7 +62,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Build an EXE for the agent. We skip the icon in CI to avoid bundling binaries.
       - name: Build EXE with PyInstaller
         run: pyinstaller --noconsole --name UIBridge app/main.py
 
