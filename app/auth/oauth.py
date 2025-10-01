@@ -14,8 +14,7 @@ import keyring
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from app.auth.spotify_config import \
-    get_client_id  # NEW: keyring-based client ID
+from app.auth.spotify_config import get_client_id  # NEW: keyring-based client ID
 from app.settings import SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT
 
 router = APIRouter(prefix="/auth/spotify", tags=["auth:spotify"])

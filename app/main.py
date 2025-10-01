@@ -16,11 +16,19 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.auth.oauth import router as spotify_oauth_router
 from app.auth.secrets import get_or_create_token
 from app.db import init_db
-from app.models.schemas import (BrowserOpenRequest, BrowserOpenResponse,
-                                ErrorResponse, FocusRequest, HealthResponse,
-                                PingResponse, SpotifyNowResponse,
-                                SpotifyPlayRequest, WindowListItem,
-                                WindowListResponse, WordCountResponse)
+from app.models.schemas import (
+    BrowserOpenRequest,
+    BrowserOpenResponse,
+    ErrorResponse,
+    FocusRequest,
+    HealthResponse,
+    PingResponse,
+    SpotifyNowResponse,
+    SpotifyPlayRequest,
+    WindowListItem,
+    WindowListResponse,
+    WordCountResponse,
+)
 from app.services.browser_service import get_tabs, launch_edge, open_in_browser
 from app.services.logs import configure_logging
 from app.services.spotify_service import now as sp_now

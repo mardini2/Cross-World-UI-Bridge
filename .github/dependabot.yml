@@ -1,11 +1,56 @@
 version: 2
+
 updates:
+  # Python packages
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+
+    # Group the dev-tooling updates together so PR noise stays low
+    groups:
+      dev-tools:
+        applies-to: version-updates
+        patterns:
+          - "black"
+          - "ruff*"
+          - "isort"
+          - "mypy"
+          - "pytest"
+          - "pytest-*"
+          - "types-*"
+          - "pre-commit"
+
+    # Don’t open breaking majors for core runtime libs unless we opt-in
+    ignore:
+      - dependency-name: "fastapi"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "sqlalchemy*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "httpx*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "websockets*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pywin32"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pywinauto*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typer*"
+        update-types: ["version-update:semver-major"]
+
+  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      ghactions:
+        applies-to: version-updates
+        patterns:
+          - "actions/*"
+          - "github/codeql-action*"
+          - "actions/upload-pages-artifact"
+          - "actions/download-artifact"
