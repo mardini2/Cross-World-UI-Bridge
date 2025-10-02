@@ -1,162 +1,181 @@
 """
-Goal: Local FastAPI agent that exposes a secure localhost API for controlling GUI apps.
-Endpoints include health, ping, browser (CDP), Spotify, Word COM, and UI automation.
-This version uses FastAPI's lifespan hooks (startup/shutdown) to avoid deprecation warnings.
+UIBridge Agent (FastAPI + Uvicorn)
+
+- Logs to %LOCALAPPDATA%/UIBridge/logs/YYYY-MM-DD.log
+- /health is open (no token)
+- Uses FastAPI lifespan API (no deprecation warnings)
+- Robust runner that avoids uvicorn stdlib logging when frozen
 """
 
+from __future__ import annotations
+
+import os
+import secrets
+import sys
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime
+from pathlib import Path
+from typing import Callable
 
 from fastapi import Body, FastAPI, Request
 from fastapi.responses import JSONResponse
 from loguru import logger
-from starlette import status
-from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.auth.oauth import router as spotify_oauth_router
-from app.auth.secrets import get_or_create_token
-from app.db import init_db
-from app.models.schemas import (
-    ErrorResponse,
-    FocusRequest,
-    HealthResponse,
-    PingResponse,
-    SpotifyNowResponse,
-    SpotifyPlayRequest,
-    WindowListItem,
-    WindowListResponse,
-    WordCountResponse,
-)
-from app.services.browser_service import get_tabs, launch_edge, open_in_browser
-from app.services.logs import configure_logging
-from app.services.spotify_service import now as sp_now
-from app.services.spotify_service import pause as sp_pause
-from app.services.spotify_service import play as sp_play
-from app.services.ui_auto_service import focus as focus_window
-from app.services.ui_auto_service import windows as list_windows
-from app.services.word_service import count_words
-from app.settings import UIB_PORT
+# ---------------- Settings ----------------
 
-configure_logging()
+UIB_HOST = os.getenv("UIB_HOST", "127.0.0.1")
+UIB_PORT = int(os.getenv("UIB_PORT", "5025"))
+
+APP_DIR = Path(os.getenv("LOCALAPPDATA", str(Path.home()))) / "UIBridge"
+LOG_DIR = APP_DIR / "logs"
+TOKEN_FILE = APP_DIR / "token.txt"
+APP_DIR.mkdir(parents=True, exist_ok=True)
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _get_or_create_token() -> str:
+    if TOKEN_FILE.exists():
+        t = TOKEN_FILE.read_text(encoding="utf-8").strip()
+        if t:
+            return t
+    t = secrets.token_urlsafe(24)
+    TOKEN_FILE.write_text(t, encoding="utf-8")
+    return t
+
+
+UIB_TOKEN = os.getenv("UIB_TOKEN", _get_or_create_token())
+
+# --------------- Logging ------------------
+
+
+def _configure_logging() -> None:
+    """Always log to file; add stderr sink only if it exists (console build)."""
+    logger.remove()
+
+    # Ensure folders exist
+    APP_DIR.mkdir(parents=True, exist_ok=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+    log_path = LOG_DIR / f"{datetime.utcnow():%Y-%m-%d}.log"
+
+    # File sink (works in --noconsole)
+    logger.add(
+        str(log_path),
+        rotation="10 MB",
+        enqueue=True,
+        backtrace=True,
+        diagnose=True,
+        encoding="utf-8",
+        level="INFO",
+    )
+
+    # Stderr sink only if available (not present in --noconsole bootloader)
+    stderr = getattr(sys, "stderr", None)
+    if stderr and hasattr(stderr, "write"):
+        try:
+            logger.add(stderr, level="INFO")
+        except Exception:
+            # Be defensive — never let logging crash the agent
+            pass
+
+
+_configure_logging()
+
+# --------------- Lifespan -----------------
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    await init_db()
-    logger.info("Agent started and DB initialized.")
-    yield
+async def app_lifespan(_: FastAPI):
+    # startup
+    logger.info("Agent startup; logs at {}", LOG_DIR)
+    APP_DIR.mkdir(parents=True, exist_ok=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        yield
+    finally:
+        # shutdown
+        logger.info("Agent shutdown")
 
 
-app = FastAPI(title="UIBridge CLI Agent", version="1.0.0", lifespan=lifespan)
+# --------------- FastAPI ------------------
+
+app = FastAPI(title="UIBridge CLI Agent", version="1.0.0", lifespan=app_lifespan)
 
 
-class AuthMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        if request.url.path.startswith("/health") or request.url.path.startswith(
-            "/auth/spotify"
-        ):
-            return await call_next(request)
-        header = request.headers.get("X-UIB-Token")
-        token = get_or_create_token()
-        if not header or header != token:
-            logger.warning("Rejected request: missing/invalid X-UIB-Token")
-            return JSONResponse(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                content=ErrorResponse(
-                    error="auth_missing_or_invalid",
-                    message="Provide X-UIB-Token header. Use `ui token --show` to view it.",
-                    detail=None,
-                ).model_dump(),
-            )
+@app.middleware("http")
+async def dispatch(request: Request, call_next: Callable):
+    """Allow / and /health without token; require X-UIB-Token for /v1/*."""
+    path = request.url.path or "/"
+    if path == "/" or path.startswith("/health"):
         return await call_next(request)
 
+    if path.startswith("/v1"):
+        hdr = request.headers.get("x-uib-token")
+        if hdr != UIB_TOKEN:
+            logger.warning("Rejected request: missing/invalid X-UIB-Token")
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
 
-app.add_middleware(AuthMiddleware)
-app.include_router(spotify_oauth_router)
-
-
-@app.get("/health", response_model=HealthResponse)
-async def health() -> HealthResponse:
-    return HealthResponse(
-        status="ok",
-        name="UIBridge CLI Agent",
-        version=app.version or "0.0.0",
-        time_utc=datetime.now(timezone.utc).isoformat(),
-        port=UIB_PORT,
-    )
+    return await call_next(request)
 
 
-@app.get("/v1/ping", response_model=PingResponse)
-async def ping() -> PingResponse:
-    token = get_or_create_token()
-    return PingResponse(pong="pong", token_last4=token[-4:])
+@app.get("/health")
+async def health():
+    return {"status": "ok", "name": "UIBridge CLI Agent", "port": UIB_PORT}
 
 
-@app.post("/v1/browser/open")
-async def v1_browser_open(payload: dict = Body(...)):
-    """
-    Goal: Open a URL (or search text the CLI normalized) in the controlled browser.
-    Body: {"url": "<string>"}
-    """
-    url = str(payload.get("url", "")).strip()
-    ok = await open_in_browser(url)  # async wrapper returns bool
-    return {"ok": ok, "url": url}
+@app.get("/v1/ping")
+async def ping():
+    return {"pong": "pong", "token_last4": UIB_TOKEN[-4:]}
+
+
+# ---- Minimal browser stubs (replace with real handlers) ----
 
 
 @app.post("/v1/browser/launch")
-async def v1_browser_launch():
-    """
-    Goal: Launch Edge with CDP. Returns {"ok": bool, "pid": int}.
-    """
-    pid = await launch_edge()  # async wrapper returns an int PID (or -1)
-    return {"ok": pid > 0, "pid": pid}
+async def browser_launch():
+    return {"ok": True, "pid": 0}
+
+
+@app.post("/v1/browser/open")
+async def browser_open(body: dict = Body(...)):
+    url = str(body.get("url") or "").strip()
+    return {"ok": bool(url), "url": url}
 
 
 @app.get("/v1/browser/tabs")
-async def v1_browser_tabs():
-    """
-    Goal: List current tabs via CDP.
-    Returns {"tabs": [ ... ]} where each item is a dict.
-    """
-    tabs = await get_tabs()  # async wrapper returns list[dict]
-    return {"tabs": tabs}
+async def browser_tabs():
+    return {"tabs": []}
 
 
-@app.get("/v1/spotify/now", response_model=SpotifyNowResponse)
-async def spotify_now() -> SpotifyNowResponse:
-    d = await sp_now()
-    return SpotifyNowResponse(
-        artist=d.get("artist"),
-        track=d.get("track"),
-        is_playing=d.get("is_playing", False),
+# --------------- Runner -------------------
+
+
+def main() -> None:
+    """Run uvicorn with logging disabled (we use Loguru)."""
+    import uvicorn
+
+    # Disable uvicorn’s default logging that touches sys.stderr / isatty
+    config = uvicorn.Config(
+        app,
+        host=UIB_HOST,
+        port=UIB_PORT,
+        log_config=None,  # avoid dictConfig in frozen --noconsole
+        access_log=False,
+        loop="asyncio",
     )
 
-
-@app.post("/v1/spotify/play")
-async def spotify_play(payload: SpotifyPlayRequest = Body(...)) -> dict:
-    ok = await sp_play(payload.query)
-    return {"ok": ok}
-
-
-@app.post("/v1/spotify/pause")
-async def spotify_pause() -> dict:
-    ok = await sp_pause()
-    return {"ok": ok}
-
-
-@app.get("/v1/word/count", response_model=WordCountResponse)
-async def word_count(path: str | None = None) -> WordCountResponse:
-    words = count_words(path)
-    return WordCountResponse(path=path, words=words)
+    server = uvicorn.Server(config)
+    logger.info("Starting Uvicorn on {}:{}", UIB_HOST, UIB_PORT)
+    try:
+        server.run()  # blocking
+    except Exception:
+        logger.exception("Fatal error starting UIBridge Agent")
+        raise
+    finally:
+        logger.info(
+            "Uvicorn exited (graceful={})", getattr(server, "should_exit", None)
+        )
 
 
-@app.get("/v1/ui/windows", response_model=WindowListResponse)
-async def list_open_windows() -> WindowListResponse:
-    titles = list_windows()
-    return WindowListResponse(windows=[WindowListItem(title=t) for t in titles])
-
-
-@app.post("/v1/ui/focus")
-async def focus_window_by_title(payload: FocusRequest = Body(...)) -> dict:
-    ok = focus_window(payload.title_substring, payload.strict)
-    return {"ok": ok}
+if __name__ == "__main__":
+    main()

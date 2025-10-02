@@ -3,9 +3,8 @@
  True,
  False,
  True,
- 'C:\\Users\\alimm\\Desktop\\Cross-World UI '
- 'Bridge\\Project\\Cross-World-UI-Bridge\\ui-bridge\\.venv\\Lib\\site-packages\\PyInstaller\\bootloader\\images\\icon-console.ico',
- versioninfo.VSVersionInfo(ffi=versioninfo.FixedFileInfo(filevers=(1, 0, 1, 0), prodvers=(1, 0, 1, 0), mask=0x3f, flags=0x0, OS=0x40004, fileType=1, subtype=0x0, date=(0, 0)), kids=[versioninfo.StringFileInfo([versioninfo.StringTable('040904E4', [versioninfo.StringStruct('CompanyName', 'Cross-World'), versioninfo.StringStruct('FileDescription', 'UI Bridge Agent'), versioninfo.StringStruct('FileVersion', '1.0.1'), versioninfo.StringStruct('InternalName', 'UIBridge'), versioninfo.StringStruct('OriginalFilename', 'UIBridge.exe'), versioninfo.StringStruct('ProductName', 'Cross-World UI Bridge'), versioninfo.StringStruct('ProductVersion', '1.0.1')])]), versioninfo.VarFileInfo([versioninfo.VarStruct('Translation', [1033, 1252])])]),
+ 'C:\\Users\\alimm\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\bootloader\\images\\icon-console.ico',
+ versioninfo.VSVersionInfo(ffi=versioninfo.FixedFileInfo(filevers=(1, 2, 0, 0), prodvers=(1, 2, 0, 0), mask=0x3f, flags=0x0, OS=0x40004, fileType=1, subtype=0x0, date=(0, 0)), kids=[versioninfo.StringFileInfo([versioninfo.StringTable('040904E4', [versioninfo.StringStruct('CompanyName', 'UIBridge'), versioninfo.StringStruct('FileDescription', 'UIBridge CLI Agent'), versioninfo.StringStruct('FileVersion', '1.2.0'), versioninfo.StringStruct('InternalName', 'UIBridge'), versioninfo.StringStruct('OriginalFilename', 'UIBridge.exe'), versioninfo.StringStruct('ProductName', 'UIBridge CLI'), versioninfo.StringStruct('ProductVersion', '1.2.0')])]), versioninfo.VarFileInfo([versioninfo.VarStruct('Translation', [1033, 1252])])]),
  False,
  False,
  b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<assembly xmlns='
@@ -59,24 +58,16 @@
    'Bridge\\Project\\Cross-World-UI-Bridge\\ui-bridge\\build\\ui\\localpycs\\pyimod04_pywin32.pyc',
    'PYMODULE'),
   ('pyiboot01_bootstrap',
-   'C:\\Users\\alimm\\Desktop\\Cross-World UI '
-   'Bridge\\Project\\Cross-World-UI-Bridge\\ui-bridge\\.venv\\Lib\\site-packages\\PyInstaller\\loader\\pyiboot01_bootstrap.py',
+   'C:\\Users\\alimm\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\loader\\pyiboot01_bootstrap.py',
    'PYSOURCE'),
   ('pyi_rth_inspect',
-   'C:\\Users\\alimm\\Desktop\\Cross-World UI '
-   'Bridge\\Project\\Cross-World-UI-Bridge\\ui-bridge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_inspect.py',
+   'C:\\Users\\alimm\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_inspect.py',
    'PYSOURCE'),
   ('pyi_rth_pkgutil',
-   'C:\\Users\\alimm\\Desktop\\Cross-World UI '
-   'Bridge\\Project\\Cross-World-UI-Bridge\\ui-bridge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_pkgutil.py',
+   'C:\\Users\\alimm\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_pkgutil.py',
    'PYSOURCE'),
   ('pyi_rth_multiprocessing',
-   'C:\\Users\\alimm\\Desktop\\Cross-World UI '
-   'Bridge\\Project\\Cross-World-UI-Bridge\\ui-bridge\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_multiprocessing.py',
-   'PYSOURCE'),
-  ('pyi_rth_pywintypes',
-   'C:\\Users\\alimm\\Desktop\\Cross-World UI '
-   'Bridge\\Project\\Cross-World-UI-Bridge\\ui-bridge\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks\\pyi_rth_pywintypes.py',
+   'C:\\Users\\alimm\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_multiprocessing.py',
    'PYSOURCE'),
   ('entry',
    'C:\\Users\\alimm\\Desktop\\Cross-World UI '
@@ -85,9 +76,8 @@
  [],
  False,
  False,
- 1759319803,
+ 1759406745,
  [('run.exe',
-   'C:\\Users\\alimm\\Desktop\\Cross-World UI '
-   'Bridge\\Project\\Cross-World-UI-Bridge\\ui-bridge\\.venv\\Lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\run.exe',
+   'C:\\Users\\alimm\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\run.exe',
    'EXECUTABLE')],
  'C:\\Users\\alimm\\AppData\\Local\\Programs\\Python\\Python311\\python311.dll')
