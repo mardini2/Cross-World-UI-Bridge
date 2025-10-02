@@ -109,15 +109,31 @@ def word_count(path: Optional[str] = None) -> int:
     # Start Word hidden
     word = win32.Dispatch("Word.Application")
     word.Visible = False
+    word.DisplayAlerts = False  # Disable security prompts
 
     doc = None
     try:
         if path:
             # SECURITY: validate before opening
             resolved = _validate_and_resolve_path(path)
-            # Open read-only, don't add to Recent files:
-            #   Parameters: FileName, ConfirmConversions, ReadOnly, AddToRecentFiles
-            doc = word.Documents.Open(str(resolved), False, True, False)
+            
+            # Additional security checks
+            if not resolved.suffix.lower() in {'.doc', '.docx', '.rtf'}:
+                raise ValueError("Only Word documents (.doc, .docx, .rtf) are allowed")
+            
+            if resolved.stat().st_size > 50 * 1024 * 1024:  # 50MB limit
+                raise ValueError("File too large (max 50MB)")
+            
+            # Open with maximum security restrictions
+            doc = word.Documents.Open(
+                str(resolved), 
+                ConfirmConversions=False,
+                ReadOnly=True, 
+                AddToRecentFiles=False,
+                Revert=False,
+                Format=0,  # Auto-detect format
+                NoEncodingDialog=True
+            )
         else:
             # No path: use the active document if any
             if word.Documents.Count == 0:
@@ -126,17 +142,21 @@ def word_count(path: Optional[str] = None) -> int:
 
         # 0 => wdStatisticWords
         count = doc.ComputeStatistics(0)
-        return int(count)
+        return int(count) if count is not None else 0
 
+    except Exception as e:
+        raise RuntimeError(f"Failed to process document: {str(e)[:100]}") from e
     finally:
         # Close doc if we opened one
-        if doc is not None and getattr(doc, "Saved", None) is not None:
+        if doc is not None:
             try:
-                doc.Close(False)
+                doc.Close(SaveChanges=False)
             except Exception:
                 pass
         # Quit Word
         try:
             word.Quit()
+        except Exception:
+            pass
         except Exception:
             pass

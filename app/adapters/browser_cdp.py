@@ -6,6 +6,7 @@ We keep it modest: launch Edge with debugging, open URL, list tabs.
 import json
 import os
 import subprocess
+import tempfile
 from typing import List, Optional
 
 import httpx
@@ -17,11 +18,17 @@ from app.settings import CDP_PORT
 def launch_edge_with_cdp(extra_args: Optional[list] = None) -> subprocess.Popen:
     """
     Start Microsoft Edge with remote debugging bound to 127.0.0.1:<CDP_PORT>
-    and a disposable profile stored under the user's TEMP folder.
+    and a disposable profile stored in a secure temp directory.
     """
-    temp_dir = os.environ.get("TEMP") or os.environ.get("TMP") or "."
-    profile_dir = os.path.join(temp_dir, "UIBridgeEdgeProfile")
-
+    # Use secure temp directory
+    profile_dir = tempfile.mkdtemp(prefix="UIBridgeEdge_")
+    
+    # Validate extra_args against allowlist
+    allowed_args = {
+        "--disable-extensions", "--disable-plugins", "--disable-images",
+        "--disable-javascript", "--incognito", "--disable-gpu"
+    }
+    
     args = [
         "msedge.exe",
         f"--remote-debugging-port={CDP_PORT}",
@@ -29,8 +36,12 @@ def launch_edge_with_cdp(extra_args: Optional[list] = None) -> subprocess.Popen:
         f"--user-data-dir={profile_dir}",
         "--no-first-run",
     ]
+    
+    # Only allow safe, pre-approved arguments
     if extra_args:
-        args.extend(extra_args)
+        for arg in extra_args:
+            if isinstance(arg, str) and arg in allowed_args:
+                args.append(arg)
 
     try:
         return subprocess.Popen(args, shell=False)

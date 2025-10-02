@@ -73,6 +73,23 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class SecurityMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Add security headers
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        
+        # Add HSTS for HTTPS
+        if request.url.scheme == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        
+        return response
+
+
+app.add_middleware(SecurityMiddleware)
 app.add_middleware(AuthMiddleware)
 app.include_router(spotify_oauth_router)
 
@@ -96,12 +113,36 @@ async def ping() -> PingResponse:
 
 @app.post("/v1/browser/open", response_model=BrowserOpenResponse)
 async def browser_open(payload: BrowserOpenRequest = Body(...)) -> BrowserOpenResponse:
-    ok = await open_in_browser(str(payload.url))
-    return BrowserOpenResponse(
-        ok=ok,
-        message="Opened in default browser via CDP." if ok else "Failed to open.",
-        url=str(payload.url),
-    )
+    # Validate URL
+    url_str = str(payload.url)
+    if len(url_str) > 2048:  # Reasonable URL length limit
+        return BrowserOpenResponse(
+            ok=False,
+            message="URL too long",
+            url=url_str[:100] + "..." if len(url_str) > 100 else url_str,
+        )
+    
+    # Only allow HTTP/HTTPS URLs
+    if not url_str.startswith(('http://', 'https://')):
+        return BrowserOpenResponse(
+            ok=False,
+            message="Only HTTP/HTTPS URLs allowed",
+            url=url_str[:100] + "..." if len(url_str) > 100 else url_str,
+        )
+    
+    try:
+        ok = await open_in_browser(url_str)
+        return BrowserOpenResponse(
+            ok=ok,
+            message="Opened in default browser via CDP." if ok else "Failed to open.",
+            url=url_str,
+        )
+    except Exception:
+        return BrowserOpenResponse(
+            ok=False,
+            message="Internal error occurred",
+            url=url_str[:100] + "..." if len(url_str) > 100 else url_str,
+        )
 
 
 @app.post("/v1/browser/launch")
@@ -128,29 +169,70 @@ async def spotify_now() -> SpotifyNowResponse:
 
 @app.post("/v1/spotify/play")
 async def spotify_play(payload: SpotifyPlayRequest = Body(...)) -> dict:
-    ok = await sp_play(payload.query)
-    return {"ok": ok}
-
-
-@app.post("/v1/spotify/pause")
-async def spotify_pause() -> dict:
-    ok = await sp_pause()
-    return {"ok": ok}
+    # Validate query length and content
+    if len(payload.query) > 200:
+        return {"ok": False, "error": "Query too long"}
+    
+    # Basic sanitization - remove potentially dangerous characters
+    import re
+    if not re.match(r'^[a-zA-Z0-9\s\-_.,!?]+$', payload.query):
+        return {"ok": False, "error": "Invalid characters in query"}
+    
+    try:
+        ok = await sp_play(payload.query)
+        return {"ok": ok}
+    except Exception:
+        return {"ok": False, "error": "Internal error occurred"}
 
 
 @app.get("/v1/word/count", response_model=WordCountResponse)
 async def word_count(path: str | None = None) -> WordCountResponse:
-    words = count_words(path)
-    return WordCountResponse(path=path, words=words)
+    if path and len(path) > 500:  # Reasonable path length limit
+        return WordCountResponse(path=None, words=0)
+    
+    try:
+        words = count_words(path)
+        return WordCountResponse(path=path, words=words)
+    except Exception:
+        return WordCountResponse(path=None, words=0)
+
+
+@app.post("/v1/spotify/pause")
+async def spotify_pause() -> dict:
+    try:
+        ok = await sp_pause()
+        return {"ok": ok}
+    except Exception:
+        return {"ok": False, "error": "Internal error occurred"}
 
 
 @app.get("/v1/ui/windows", response_model=WindowListResponse)
 async def list_open_windows() -> WindowListResponse:
-    titles = list_windows()
-    return WindowListResponse(windows=[WindowListItem(title=t) for t in titles])
+    try:
+        titles = list_windows()
+        # Limit number of windows returned and sanitize titles
+        safe_titles = []
+        for title in titles[:50]:  # Limit to 50 windows
+            if len(title) <= 200:  # Limit title length
+                safe_titles.append(title)
+        return WindowListResponse(windows=[WindowListItem(title=t) for t in safe_titles])
+    except Exception:
+        return WindowListResponse(windows=[])
 
 
 @app.post("/v1/ui/focus")
 async def focus_window_by_title(payload: FocusRequest = Body(...)) -> dict:
-    ok = focus_window(payload.title_substring, payload.strict)
-    return {"ok": ok}
+    # Validate title substring
+    if len(payload.title_substring) > 200:
+        return {"ok": False, "error": "Title substring too long"}
+    
+    # Basic sanitization
+    import re
+    if not re.match(r'^[a-zA-Z0-9\s\-_.,!?()]+$', payload.title_substring):
+        return {"ok": False, "error": "Invalid characters in title"}
+    
+    try:
+        ok = focus_window(payload.title_substring, payload.strict)
+        return {"ok": ok}
+    except Exception:
+        return {"ok": False, "error": "Internal error occurred"}

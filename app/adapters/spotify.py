@@ -47,19 +47,28 @@ async def _get_devices(client: httpx.AsyncClient, token: str) -> List[Dict]:
 
 
 def _maybe_launch_spotify_app() -> None:
+    """
+    Safely launch Spotify app if not running.
+    """
     try:
-        os.startfile("spotify:")  # URI handler wakes the app (Store version)
+        # Use webbrowser module for safer URI handling
+        import webbrowser
+        webbrowser.open("spotify:")
         return
     except Exception:
         pass
+    
     try:
-        appdata = os.environ.get("APPDATA")
-        if appdata:
-            exe = os.path.join(appdata, "Spotify", "Spotify.exe")
-            if os.path.exists(exe):
-                os.startfile(exe)
+        # Safer executable launching with validation
+        import shutil
+        spotify_exe = shutil.which("Spotify.exe")
+        if spotify_exe and os.path.exists(spotify_exe):
+            # Validate it's actually Spotify executable
+            if "spotify" in spotify_exe.lower() and spotify_exe.endswith("Spotify.exe"):
+                import subprocess
+                subprocess.run([spotify_exe], check=False, timeout=5)
     except Exception:
-        pass
+        pass  # Fail silently if can't launch
 
 
 def _pick_device(devs: List[Dict]) -> Optional[str]:
