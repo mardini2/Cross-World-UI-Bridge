@@ -1,6 +1,5 @@
 """
-Goal: Entry point that exposes the Typer CLI as a standard script.
-So we can build ui.exe with PyInstaller and users just run 'ui'.
+Goal: tiny entrypoint so PyInstaller can build ui.exe cleanly.
 """
 
 from app.cli.cli import app

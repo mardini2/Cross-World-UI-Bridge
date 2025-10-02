@@ -20,7 +20,8 @@ from fastapi.responses import HTMLResponse  # simple HTML responses
 
 # local imports
 from app.auth.spotify_config import get_client_id  # keyring-based Client ID retrieval
-from app.settings import SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT  # env-configured defaults
+from app.settings import SPOTIFY_CLIENT_ID  # env-configured defaults
+from app.settings import SPOTIFY_REDIRECT
 
 # Create a router for all Spotify auth endpoints under a common prefix and tag.
 router = APIRouter(prefix="/auth/spotify", tags=["auth:spotify"])

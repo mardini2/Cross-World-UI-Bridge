@@ -1,6 +1,6 @@
-"""
+r"""
 Goal: Friendly CLI for UIBridge.
-- One-time 'setup' wizard for Spotify (stores Client ID via keyring and opens login).
+- One-time 'setup' wizard for Spotify (stores Client ID via the agent and opens login).
 - Top-level aliases so users can type: ui play "drake", ui open youtube, ui search lofi, ui login, ui now, ui pause.
 - Auto-start agent if it's not running by launching ../UIBridge/UIBridge.exe and waiting briefly.
 - Human outputs by default; still prints compact JSON for API-style commands.
@@ -8,7 +8,6 @@ Goal: Friendly CLI for UIBridge.
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import sys
@@ -16,15 +15,12 @@ import time
 import urllib.parse
 import webbrowser
 from pathlib import Path
-from typing import Optional
 
 import httpx
 import typer
-from rich import print as rprint
-from rich.panel import Panel
-from rich.table import Table
 
-# Make sure the help string includes the exact text tests expect.
+# ---------- app banner / Typer app ----------
+
 app = typer.Typer(
     help="UI Bridge CLI",
     add_completion=False,
@@ -32,17 +28,13 @@ app = typer.Typer(
 )
 
 
-# Also put it in the callback so it always shows in --help.
 @app.callback(help="UI Bridge CLI")
 def _root_callback() -> None:
-    """
-    UI Bridge CLI
-    """
-    # no-op; description is used by Typer for help rendering
+    """UI Bridge CLI"""
     return
 
 
-# ---------- base URL helpers ----------
+# ---------- base URL / token helpers ----------
 
 
 def _host() -> str:
@@ -60,21 +52,19 @@ def _base_url() -> str:
     return f"http://{_host()}:{_port()}"
 
 
-# ---------- agent bootstrap ----------
-
-
 def _exe_dir() -> Path:
-    # when frozen by PyInstaller, sys.executable points at ui.exe
+    """Directory of ui.exe when frozen; else the package dir."""
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent
 
 
 def _find_agent() -> Path:
+    """Locate the agent exe in the release layout."""
     p = _exe_dir()
     candidates = [
         p.parent / "UIBridge" / "UIBridge.exe",  # release zip layout
-        p / "UIBridge.exe",  # fallback
+        p / "UIBridge.exe",  # fallback (dev)
     ]
     for c in candidates:
         if c.exists():
@@ -83,6 +73,7 @@ def _find_agent() -> Path:
 
 
 def _start_agent_if_needed(timeout_s: float = 6.0) -> bool:
+    """Ensure the agent is up. Try to start it if needed, then wait briefly."""
     url = _base_url() + "/health"
     try:
         with httpx.Client(timeout=1.0) as c:
@@ -92,13 +83,13 @@ def _start_agent_if_needed(timeout_s: float = 6.0) -> bool:
     except Exception:
         pass
 
-    # Try launch the agent
+    # Try launching the agent
     try:
         subprocess.Popen([str(_find_agent())], close_fds=True)
     except Exception:
         return False
 
-    # Wait briefly for it to boot
+    # Wait for it to boot
     t0 = time.time()
     with httpx.Client(timeout=1.0) as c:
         while time.time() - t0 < timeout_s:
@@ -110,6 +101,44 @@ def _start_agent_if_needed(timeout_s: float = 6.0) -> bool:
                 pass
             time.sleep(0.3)
     return False
+
+
+# token is shared with the agent via Windows Credential Manager.
+# we call the agent for a token if needed so both sides stay in sync.
+
+
+def _get_or_create_token_via_agent() -> str:
+    """
+    Ask the agent for (or to mint) the token so CLI and agent always agree.
+    Fallback: return empty string if agent is not reachable.
+    """
+    try:
+        with httpx.Client(timeout=3.0) as c:
+            r = c.post(_base_url() + "/v1/token", json={"op": "ensure"})
+            if r.status_code == 200:
+                j = r.json() or {}
+                return str(j.get("token", ""))
+    except Exception:
+        return ""
+    return ""
+
+
+def _headers() -> dict[str, str]:
+    """
+    Build headers for protected endpoints. If we don't have a token,
+    ask the agent to ensure one exists (shared via keyring).
+    """
+    tok = _get_or_create_token_via_agent()
+    return {"X-UIB-Token": tok} if tok else {}
+
+
+def _need_agent_hint() -> None:
+    typer.echo(
+        "Agent not reachable. Start it via:\n"
+        '  - "Start UIBridge Agent.cmd" (in the unzipped folder)\n'
+        "  - or UIBridgeLauncher.exe → Start Agent\n",
+        err=True,
+    )
 
 
 # ---------- URL helpers ----------
@@ -128,7 +157,7 @@ def _looks_like_url(text: str) -> bool:
 
 def _normalize_url_or_search(text: str) -> str:
     """
-    If input looks like a URL, ensure it has a scheme.
+    If input looks like a URL/domain, ensure it has a scheme.
     Otherwise, return a DuckDuckGo search URL for the query.
     """
     t = text.strip()
@@ -145,33 +174,85 @@ def _normalize_url_or_search(text: str) -> str:
 
 @app.command()
 def doctor() -> None:
+    """Quick health + ping check (tries to auto-start the agent)."""
     ok = _start_agent_if_needed()
     if not ok:
-        rprint(f"[red]Agent is not responding on {_base_url()}[/red]")
+        typer.secho(f"Agent is not responding on {_base_url()}", fg="red", err=True)
         raise typer.Exit(code=1)
+
     with httpx.Client(timeout=3.0) as c:
-        r = c.get(_base_url() + "/health")
-        health_ok = r.status_code == 200
-        r2 = c.get(_base_url() + "/v1/ping")
-        pong = r2.json() if r2.status_code == 200 else {}
-    tbl = Table(title="UIBridge CLI Agent")
-    tbl.add_column("Field")
-    tbl.add_column("Value")
-    tbl.add_row("Base URL", _base_url())
-    tbl.add_row("Health", "ok" if health_ok else "fail")
-    tbl.add_row("Ping", json.dumps(pong))
-    rprint(Panel(tbl, border_style="green"))
+        health = c.get(_base_url() + "/health")
+        ping = c.get(_base_url() + "/v1/ping", headers=_headers())
+
+    typer.echo(
+        {
+            "base_url": _base_url(),
+            "health": health.status_code,
+            "ping": ping.json() if ping.status_code == 200 else {"ok": False},
+        }
+    )
 
 
 @app.command()
 def ping() -> None:
+    """Ping the protected API. Requires a token (created automatically)."""
     ok = _start_agent_if_needed()
     if not ok:
-        rprint(f"[red]Agent is not responding on {_base_url()}[/red]")
-        raise typer.Exit(code=1)
+        _need_agent_hint()
+        raise typer.Exit(code=2)
     with httpx.Client(timeout=3.0) as c:
-        r = c.get(_base_url() + "/v1/ping")
-        rprint(json.dumps(r.json(), ensure_ascii=False))
+        r = c.get(_base_url() + "/v1/ping", headers=_headers())
+        typer.echo(r.text)
+
+
+# ---------- token management ----------
+
+token_app = typer.Typer(
+    help="View or reset the shared auth token (stored via keyring)."
+)
+app.add_typer(token_app, name="token")
+
+
+@token_app.command("show")
+def token_show(
+    full: bool = typer.Option(False, "--full", help="Show full token")
+) -> None:
+    ok = _start_agent_if_needed()
+    if not ok:
+        _need_agent_hint()
+        raise typer.Exit(code=2)
+    with httpx.Client(timeout=3.0) as c:
+        r = c.get(_base_url() + "/v1/token")
+        if r.status_code != 200:
+            typer.secho("Token not found.", fg="yellow")
+            return
+        tok = (r.json() or {}).get("token", "")
+        if not tok:
+            typer.secho("Token not found.", fg="yellow")
+            return
+        if full:
+            typer.echo(tok)
+        else:
+            last4 = tok[-4:] if len(tok) >= 4 else tok
+            typer.echo(f"Token present. Last 4: {last4}")
+
+
+@token_app.command("reset")
+def token_reset() -> None:
+    """Create a fresh token in the shared store (agent + CLI)."""
+    ok = _start_agent_if_needed()
+    if not ok:
+        _need_agent_hint()
+        raise typer.Exit(code=2)
+    with httpx.Client(timeout=3.0) as c:
+        r = c.post(_base_url() + "/v1/token", json={"op": "reset"})
+        if r.status_code == 200:
+            tok = (r.json() or {}).get("token", "")
+            last4 = tok[-4:] if len(tok) >= 4 else tok
+            typer.secho(f"Token reset. Last 4: {last4}", fg="green")
+        else:
+            typer.secho("Failed to reset token.", fg="red", err=True)
+            raise typer.Exit(code=2)
 
 
 # ---------- browser sub-commands ----------
@@ -184,11 +265,11 @@ app.add_typer(browser_app, name="browser")
 def browser_launch() -> None:
     ok = _start_agent_if_needed()
     if not ok:
-        rprint("[red]Agent not responding[/red]")
-        raise typer.Exit(code=1)
-    with httpx.Client(timeout=5.0) as c:
-        r = c.post(_base_url() + "/v1/browser/launch")
-        rprint(json.dumps(r.json(), ensure_ascii=False))
+        _need_agent_hint()
+        raise typer.Exit(code=2)
+    with httpx.Client(timeout=6.0) as c:
+        r = c.post(_base_url() + "/v1/browser/launch", headers=_headers())
+        typer.echo(r.text)
 
 
 @browser_app.command("open")
@@ -199,30 +280,34 @@ def browser_open(url: str = typer.Argument(..., help="URL or search text")) -> N
     """
     ok = _start_agent_if_needed()
     if not ok:
-        rprint("[red]Agent not responding[/red]")
-        raise typer.Exit(code=1)
+        _need_agent_hint()
+        raise typer.Exit(code=2)
     target = _normalize_url_or_search(url)
     with httpx.Client(timeout=8.0) as c:
-        r = c.post(_base_url() + "/v1/browser/open", json={"url": target})
-        data = r.json() if r.status_code == 200 else {"ok": False}
-        if not data.get("ok"):
-            # try auto-launch + retry once
-            c.post(_base_url() + "/v1/browser/launch")
-            time.sleep(0.8)
-            r2 = c.post(_base_url() + "/v1/browser/open", json={"url": target})
-            data = r2.json() if r2.status_code == 200 else {"ok": False}
-        rprint(json.dumps(data, ensure_ascii=False))
+        r = c.post(
+            _base_url() + "/v1/browser/open", headers=_headers(), json={"url": target}
+        )
+        if r.status_code == 200 and (r.json() or {}).get("ok"):
+            typer.echo(r.text)
+            return
+        # try auto-launch + retry once
+        c.post(_base_url() + "/v1/browser/launch", headers=_headers())
+        time.sleep(0.8)
+        r2 = c.post(
+            _base_url() + "/v1/browser/open", headers=_headers(), json={"url": target}
+        )
+        typer.echo(r2.text)
 
 
 @browser_app.command("tabs")
 def browser_tabs() -> None:
     ok = _start_agent_if_needed()
     if not ok:
-        rprint("[red]Agent not responding[/red]")
-        raise typer.Exit(code=1)
+        _need_agent_hint()
+        raise typer.Exit(code=2)
     with httpx.Client(timeout=5.0) as c:
-        r = c.get(_base_url() + "/v1/browser/tabs")
-        rprint(json.dumps(r.json(), ensure_ascii=False))
+        r = c.get(_base_url() + "/v1/browser/tabs", headers=_headers())
+        typer.echo(r.text)
 
 
 # ---------- convenient top-level aliases ----------
@@ -236,8 +321,8 @@ def alias_open(thing: str):
 
 @app.command("search")
 def alias_search(query: str):
-    """Search the web (DuckDuckGo) and open results in a new tab."""
-    target = _normalize_url_or_search(query)  # will become a search URL
+    """Search the web and open results in a new tab."""
+    target = _normalize_url_or_search(query)  # becomes a search URL if plain text
     return browser_open(target)
 
 
@@ -247,45 +332,15 @@ spotify_app = typer.Typer(help="Spotify commands")
 app.add_typer(spotify_app, name="spotify")
 
 
-@spotify_app.command("config")
-def spotify_config_set_client_id(
-    set_client_id: Optional[str] = typer.Option(
-        None,
-        "--set-client-id",
-        help='Store your public Spotify "Client ID" (PKCE) in Windows Credential Manager.',
-    ),
-    clear: bool = typer.Option(False, "--clear", help="Clear the stored Client ID"),
-) -> None:
-    ok = _start_agent_if_needed()
-    if not ok:
-        rprint("[red]Agent not responding[/red]")
-        raise typer.Exit(code=1)
-    with httpx.Client(timeout=6.0) as c:
-        if clear:
-            r = c.post(_base_url() + "/v1/spotify/client-id", json={"op": "clear"})
-            rprint(json.dumps(r.json(), ensure_ascii=False))
-            return
-        if set_client_id:
-            r = c.post(
-                _base_url() + "/v1/spotify/client-id",
-                json={"op": "set", "client_id": set_client_id},
-            )
-            rprint(json.dumps(r.json(), ensure_ascii=False))
-            return
-    rprint("Nothing to do. Use --set-client-id or --clear.")
-
-
 @spotify_app.command("login")
 def spotify_login() -> None:
     ok = _start_agent_if_needed()
     if not ok:
-        rprint("[red]Agent not responding[/red]")
-        raise typer.Exit(code=1)
+        _need_agent_hint()
+        raise typer.Exit(code=2)
     login_url = _base_url() + "/auth/spotify/login"
-    webbrowser.open(login_url)
-    rprint(
-        "[green]A browser tab was opened for Spotify login.[/green] When it says 'Spotify linked', return here."
-    )
+    webbrowser.open(login_url, new=1, autoraise=True)
+    typer.echo("Opened Spotify login in your browser.")
 
 
 @spotify_app.command("play")
@@ -296,33 +351,35 @@ def spotify_play(
 ) -> None:
     ok = _start_agent_if_needed()
     if not ok:
-        rprint("[red]Agent not responding[/red]")
-        raise typer.Exit(code=1)
+        _need_agent_hint()
+        raise typer.Exit(code=2)
     with httpx.Client(timeout=8.0) as c:
-        r = c.post(_base_url() + "/v1/spotify/play", json={"q": query})
-        rprint(json.dumps(r.json(), ensure_ascii=False))
+        r = c.post(
+            _base_url() + "/v1/spotify/play", headers=_headers(), json={"q": query}
+        )
+        typer.echo(r.text)
 
 
 @spotify_app.command("pause")
 def spotify_pause() -> None:
     ok = _start_agent_if_needed()
     if not ok:
-        rprint("[red]Agent not responding[/red]")
-        raise typer.Exit(code=1)
+        _need_agent_hint()
+        raise typer.Exit(code=2)
     with httpx.Client(timeout=6.0) as c:
-        r = c.post(_base_url() + "/v1/spotify/pause")
-        rprint(json.dumps(r.json(), ensure_ascii=False))
+        r = c.post(_base_url() + "/v1/spotify/pause", headers=_headers())
+        typer.echo(r.text)
 
 
 @spotify_app.command("now")
 def spotify_now() -> None:
     ok = _start_agent_if_needed()
     if not ok:
-        rprint("[red]Agent not responding[/red]")
-        raise typer.Exit(code=1)
+        _need_agent_hint()
+        raise typer.Exit(code=2)
     with httpx.Client(timeout=6.0) as c:
-        r = c.get(_base_url() + "/v1/spotify/now")
-        rprint(json.dumps(r.json(), ensure_ascii=False))
+        r = c.get(_base_url() + "/v1/spotify/now", headers=_headers())
+        typer.echo(r.text)
 
 
 @app.command("setup")
@@ -330,38 +387,41 @@ def setup() -> None:
     """
     First-time setup helper for Spotify:
     - Prompts for your Spotify Client ID (public; no secret).
-    - Saves it to Windows Credential Manager via the agent.
+    - Saves it via the agent.
     - Opens the browser to complete login.
     """
     ok = _start_agent_if_needed()
     if not ok:
-        rprint("[red]Agent not responding[/red]")
-        raise typer.Exit(code=1)
+        _need_agent_hint()
+        raise typer.Exit(code=2)
 
-    rprint(
-        Panel.fit(
-            "[bold]Spotify setup[/bold]\n"
-            "1) Visit https://developer.spotify.com -> Dashboard -> Create an app\n"
-            "2) Copy the [bold]Client ID[/bold]. (No secret needed; we use PKCE)\n"
-            "3) Paste it when prompted below.\n",
-            border_style="magenta",
-        )
+    typer.echo(
+        "Spotify setup:\n"
+        "  1) Visit https://developer.spotify.com → Dashboard → Create an app\n"
+        "  2) Copy the Client ID (no secret; we use PKCE)\n"
+        "  3) Paste it below.\n"
     )
-    client_id = typer.prompt("Paste your Spotify Client ID", hide_input=False)
+    client_id = typer.prompt("Paste your Spotify Client ID", hide_input=False).strip()
+    if not client_id:
+        typer.secho("Empty Client ID. Aborting.", fg="red", err=True)
+        raise typer.Exit(code=2)
 
     with httpx.Client(timeout=10.0) as c:
         r = c.post(
             _base_url() + "/v1/spotify/client-id",
+            headers=_headers(),
             json={"op": "set", "client_id": client_id},
         )
         j = r.json() if r.status_code == 200 else {"ok": False}
         if not j.get("ok"):
-            rprint("[red]Could not save Client ID. Is the agent running?[/red]")
+            typer.secho(
+                "Could not save Client ID. Is the agent running?", fg="red", err=True
+            )
             raise typer.Exit(code=2)
 
-    rprint("[green]Saved![/green] A browser will open to link your Spotify account…")
-    webbrowser.open(_base_url() + "/auth/spotify/login")
-    rprint('When the browser says "Spotify linked", try:  [bold]ui play "lofi"[/bold]')
+    typer.secho("Saved! A browser will open to link your Spotify account…", fg="green")
+    webbrowser.open(_base_url() + "/auth/spotify/login", new=1, autoraise=True)
+    typer.echo('When the browser says "Spotify linked", try:  ui play "lofi"')
 
 
 # Top-level aliases for Spotify
