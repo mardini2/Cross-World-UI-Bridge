@@ -33,3 +33,9 @@ UIBridge-EXEs/
 
 # Node (if any future UI bits)
 node_modules/
+
+/dist/
+/build/
+__pycache__/
+*.pyc
+*.spec
