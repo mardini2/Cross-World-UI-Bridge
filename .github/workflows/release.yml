@@ -61,18 +61,11 @@ jobs:
           app/cli/entry.py
 
       - name: Build Launcher EXE (UIBridgeLauncher.exe)
-        run: pyinstaller --noconfirm --clean --noconsole --name UIBridgeLauncher --version-file installer/version_info.txt app/launcher_gui.py
-
-      # Optional artifact: raw EXEs only
-      - name: Archive EXEs (launcher + agent + cli)
-        run: |
-          mkdir UIBridge-EXEs
-          mkdir UIBridge-EXEs\UIBridge
-          mkdir UIBridge-EXEs\ui
-          copy dist\UIBridgeLauncher\UIBridgeLauncher.exe UIBridge-EXEs\
-          copy dist\UIBridge\UIBridge.exe UIBridge-EXEs\UIBridge\
-          copy dist\ui\ui.exe UIBridge-EXEs\ui\
-          powershell Compress-Archive -Path "UIBridge-EXEs\*" -DestinationPath "UIBridge-EXEs.zip" -Force
+        run: >
+          pyinstaller --noconfirm --clean --noconsole
+          --name UIBridgeLauncher
+          --version-file installer/version_info.txt
+          app/launcher_gui.py
 
       - name: Prepare Windows package folder
         shell: pwsh
@@ -81,14 +74,12 @@ jobs:
           if (Test-Path $pkg) { Remove-Item -Recurse -Force $pkg }
           New-Item -ItemType Directory -Force $pkg | Out-Null
 
-          # copy binaries
-          New-Item -ItemType Directory -Force "$pkg\UIBridge" | Out-Null
-          New-Item -ItemType Directory -Force "$pkg\ui" | Out-Null
-          Copy-Item -Recurse -Force "dist\UIBridge\UIBridge.exe" "$pkg\UIBridge\"
-          Copy-Item -Recurse -Force "dist\ui\ui.exe" "$pkg\ui\"
-          Copy-Item -Recurse -Force "dist\UIBridgeLauncher\UIBridgeLauncher.exe" "$pkg\"
+          # Copy runtime folders
+          Copy-Item -Recurse -Force "dist\UIBridge" "$pkg\UIBridge"
+          Copy-Item -Recurse -Force "dist\ui" "$pkg\ui"
+          Copy-Item -Recurse -Force "dist\UIBridgeLauncher" "$pkg\UIBridgeLauncher"
 
-          # helper launchers (CRLF-safe line arrays)
+          # Convenience launchers (.cmd). ASCII, no fancy quotes.
           Set-Content -Encoding ascii "$pkg\Open UIBridge CLI.cmd" @(
             '@echo off',
             'cd /d "%~dp0ui"',
@@ -96,55 +87,69 @@ jobs:
           )
           Set-Content -Encoding ascii "$pkg\Start UIBridge Agent.cmd" @(
             '@echo off',
-            'setlocal',
-            'set HOST=127.0.0.1',
-            'set PORT=%UIB_PORT%',
-            'if "%PORT%"=="" set PORT=5025',
             'cd /d "%~dp0UIBridge"',
-            'start "" UIBridge.exe',
-            'echo Waiting for agent on %HOST%:%PORT% ...',
-            'for /l %%i in (1,1,25) do (',
-            '  curl -s http://%HOST%:%PORT%/health >nul 2>nul && goto :ok',
-            '  timeout /t 1 >nul',
-            ')',
-            'echo [!] Agent did not respond.',
-            'echo     - Allow Windows Firewall on Private networks if prompted.',
-            'echo     - If you saw "failed to load Python DLL", install the Microsoft VC++ 2015–2022 x64 runtime.',
-            'pause',
-            'exit /b 1',
-            ':ok',
-            'echo [+] Agent is up.',
-            'endlocal'
+            'start "" UIBridge.exe'
           )
 
-          # include startup scripts if you ship them
-          if (Test-Path "scripts\install_agent_startup.ps1") { Copy-Item -Force "scripts\install_agent_startup.ps1" "$pkg\install_agent_startup.ps1" }
-          if (Test-Path "scripts\uninstall_agent_startup.ps1") { Copy-Item -Force "scripts\uninstall_agent_startup.ps1" "$pkg\uninstall_agent_startup.ps1" }
+          # Installer helpers
+          Copy-Item -Force "scripts\install_agent_startup.ps1" "$pkg\install_agent_startup.ps1"
+          Copy-Item -Force "scripts\uninstall_agent_startup.ps1" "$pkg\uninstall_agent_startup.ps1"
 
-          # drop a quick first-run readme inside the zip
-          Set-Content -Encoding utf8 "$pkg\READ ME FIRST.txt" @(
-            'UIBridge CLI — First Run',
-            '=========================',
-            '',
-            '1) Double-click UIBridgeLauncher.exe',
-            '   - The agent starts automatically and a small window appears.',
-            '2) Click "Open CLI Console", then try:',
-            '      ui open youtube',
-            '      ui search lo-fi',
-            '      ui setup    (paste your Spotify Client ID; the browser opens to link your account)',
-            '      ui play "drake"',
-            '',
-            'Troubleshooting:',
-            '- If the CLI says the agent is not responding, click "Start Agent" in the launcher.',
-            '- If browser commands fail, the launcher’s "Start Agent" will also launch Edge with DevTools and retry.',
-            '- If you saw "failed to load Python DLL", install Microsoft Visual C++ 2015–2022 x64 redistributable.'
-          )
+          # README written via a double-quoted here-string to avoid quote parsing errors
+          $readme = @"
+          UIBridge CLI — Windows Bundle
+
+          Files:
+          - UIBridge\UIBridge.exe       (local agent)
+          - ui\ui.exe                   (command-line tool)
+          - UIBridgeLauncher\UIBridgeLauncher.exe (friendly launcher UI)
+
+          Quick start:
+          1) Double-click UIBridgeLauncher.exe
+             - Click "Start Agent" to start the local agent.
+             - Click "Open CLI" to open a terminal with ui.exe.
+          2) In the terminal, try:
+             ui doctor
+             ui open example.com
+             ui search drake
+
+          Spotify (first time):
+          1) Run: ui setup
+             - Paste your Spotify "Client ID" (public; no secret).
+             - A browser opens; complete login.
+          2) Then try:
+             ui play "moment apart odesza"
+             ui now
+             ui pause
+
+          Notes:
+          - If the CLI says it cannot connect, start the agent first (UIBridge.exe or via the launcher).
+          - If browser commands fail, click "Start Agent" in the launcher and try again.
+          - Windows may warn about downloaded ZIPs. Right-click the ZIP > Properties > Unblock, then extract.
+
+          Support: see the project README on GitHub.
+          "@
+          Set-Content -Path "$pkg\README.txt" -Value $readme -Encoding UTF8
 
       - name: Archive Windows package
         shell: pwsh
         run: |
           if (Test-Path "UIBridge-Windows.zip") { Remove-Item -Force "UIBridge-Windows.zip" }
           Compress-Archive -Path "UIBridge-Windows\*" -DestinationPath "UIBridge-Windows.zip" -Force
+
+      # Optional: EXEs-only zip (for debugging/manual installs)
+      - name: Archive EXEs (launcher + agent + cli)
+        shell: pwsh
+        run: |
+          if (Test-Path "UIBridge-EXEs") { Remove-Item -Recurse -Force "UIBridge-EXEs" }
+          New-Item -ItemType Directory -Force "UIBridge-EXEs" | Out-Null
+          New-Item -ItemType Directory -Force "UIBridge-EXEs\UIBridge" | Out-Null
+          New-Item -ItemType Directory -Force "UIBridge-EXEs\ui" | Out-Null
+          Copy-Item -Force "dist\UIBridgeLauncher\UIBridgeLauncher.exe" "UIBridge-EXEs\"
+          Copy-Item -Force "dist\UIBridge\UIBridge.exe" "UIBridge-EXEs\UIBridge\"
+          Copy-Item -Force "dist\ui\ui.exe" "UIBridge-EXEs\ui\"
+          if (Test-Path "UIBridge-EXEs.zip") { Remove-Item -Force "UIBridge-EXEs.zip" }
+          Compress-Archive -Path "UIBridge-EXEs\*" -DestinationPath "UIBridge-EXEs.zip" -Force
 
       - name: Upload artifact for publish job (Windows package)
         uses: actions/upload-artifact@v4
@@ -162,13 +167,13 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download built artifact (Windows package)
+      - name: Download artifact (Windows package)
         uses: actions/download-artifact@v4
         with:
           name: UIBridge-zip
           path: .
 
-      - name: Download built artifact (EXEs only)
+      - name: Download artifact (EXEs only)
         uses: actions/download-artifact@v4
         with:
           name: UIBridge-exes
