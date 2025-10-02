@@ -2,7 +2,8 @@ name: Release
 
 on:
   push:
-    tags: ["v*.*.*"]
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
 
 permissions:
@@ -16,9 +17,11 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -64,7 +67,7 @@ jobs:
           --version-file installer/version_info.txt
           app/launcher_gui.py
 
-      - name: Prepare Windows package folder
+      - name: Prepare Windows package folder (single ZIP)
         shell: pwsh
         run: |
           $pkg = "UIBridge-Windows"
@@ -76,15 +79,44 @@ jobs:
           Copy-Item -Recurse -Force "dist\ui" "$pkg\ui"
           Copy-Item -Recurse -Force "dist\UIBridgeLauncher" "$pkg\UIBridgeLauncher"
 
-          # Copy helper scripts
-          Copy-Item -Force "scripts\Start UIBridge Agent.cmd"   "$pkg\Start UIBridge Agent.cmd"
-          Copy-Item -Force "scripts\Open UIBridge CLI.cmd"      "$pkg\Open UIBridge CLI.cmd"
-          Copy-Item -Force "scripts\install_agent_startup.ps1"  "$pkg\install_agent_startup.ps1"
-          Copy-Item -Force "scripts\uninstall_agent_startup.ps1"$pkg\uninstall_agent_startup.ps1"
-          Copy-Item -Force "scripts\install_cli_shim.ps1"       "$pkg\install_cli_shim.ps1"
+          # Write helper .cmd files as arrays of lines (robust in YAML + PowerShell)
+          $startAgent = @(
+            '@echo off',
+            'setlocal',
+            'cd /d "%~dp0"',
+            'set "AGENT=%CD%\UIBridge\UIBridge.exe"',
+            'if not exist "%AGENT%" (',
+            '  echo Agent not found: "%AGENT%"',
+            '  pause',
+            '  exit /b 1',
+            ')',
+            'start "" "%AGENT%"',
+            'timeout /t 3 >nul',
+            'powershell -NoProfile -Command "try { (Invoke-WebRequest -UseBasicParsing ''http://127.0.0.1:5025/health'').StatusCode -eq 200 } catch { $false }" | findstr /i True >nul',
+            'if errorlevel 1 (',
+            '  echo If this is the first run, a Windows Firewall prompt may be waiting behind other windows. Allow access (Private), then try again.',
+            '  pause',
+            ')',
+            'endlocal'
+          )
+          $startAgent | Set-Content -Path "$pkg\Start UIBridge Agent.cmd" -Encoding UTF8
 
-          # README lines (ASCII-safe)
-          $readmeLines = @(
+          $openCli = @(
+            '@echo off',
+            'setlocal',
+            'cd /d "%~dp0ui"',
+            'start "" cmd /k ui.exe --help',
+            'endlocal'
+          )
+          $openCli | Set-Content -Path "$pkg\Open UIBridge CLI.cmd" -Encoding UTF8
+
+          # Copy installer helper scripts
+          Copy-Item -Force "scripts\install_agent_startup.ps1" "$pkg\install_agent_startup.ps1"
+          Copy-Item -Force "scripts\uninstall_agent_startup.ps1" "$pkg\uninstall_agent_startup.ps1"
+          Copy-Item -Force "scripts\install_cli_shim.ps1" "$pkg\install_cli_shim.ps1"
+
+          # README as array of lines; save UTF-8 to preserve punctuation
+          $readme = @(
             'UIBridge CLI — Windows Bundle',
             '',
             'Files:',
@@ -103,23 +135,23 @@ jobs:
             '',
             'Spotify (first time):',
             '1) Run: ui setup',
-            '   - Paste your Spotify Client ID (public; no secret).',
-            '   - Browser opens; complete login.',
+            '   - Paste your Spotify "Client ID" (public; no secret).',
+            '   - A browser opens; complete login.',
             '2) Then try:',
             '   ui play "moment apart odesza"',
             '   ui now',
             '   ui pause',
             '',
             'Notes:',
-            '- If the CLI cannot connect, start the agent first.',
-            '- If browser commands fail, click "Start Agent" and try again.',
+            '- If the CLI says it cannot connect, start the agent first (UIBridge.exe or via the launcher).',
+            '- If browser commands fail, click "Start Agent" in the launcher and try again.',
             '- Windows may warn about downloaded ZIPs. Right-click the ZIP > Properties > Unblock, then extract.',
             '',
             'Support: see the project README on GitHub.'
           )
-          Set-Content -Path "$pkg\README.txt" -Value $readmeLines -Encoding ascii
+          $readme | Set-Content -Path "$pkg\README.txt" -Encoding UTF8
 
-      - name: Archive Windows package (single zip)
+      - name: Archive Windows package
         shell: pwsh
         run: |
           if (Test-Path "UIBridge-Windows.zip") { Remove-Item -Force "UIBridge-Windows.zip" }
@@ -135,7 +167,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download built artifact
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: UIBridge-zip
