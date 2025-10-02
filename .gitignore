@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.venv/
+.env
+.env.*.local
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+
+# Build / dist
+build/
+dist/
+*.spec
+*.log
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local artifacts
+UIBridge-Windows.zip
+UIBridge-EXEs.zip
+UIBridge-Windows/
+UIBridge-EXEs/
+
+# Node (if any future UI bits)
+node_modules/

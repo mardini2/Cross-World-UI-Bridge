@@ -38,8 +38,9 @@ jobs:
           if (Test-Path .\build) { Remove-Item -Recurse -Force .\build }
           if (Test-Path .\UIBridge.spec) { Remove-Item -Force .\UIBridge.spec }
           if (Test-Path .\ui.spec) { Remove-Item -Force .\ui.spec }
+          if (Test-Path .\UIBridgeLauncher.spec) { Remove-Item -Force .\UIBridgeLauncher.spec }
 
-      - name: Build agent EXE with PyInstaller
+      - name: Build agent EXE (UIBridge.exe)
         run: >
           pyinstaller --noconfirm --clean --noconsole
           --name UIBridge
@@ -49,7 +50,7 @@ jobs:
           --collect-submodules sqlalchemy.dialects
           app/main.py
 
-      - name: Build CLI EXE (ui)
+      - name: Build CLI EXE (ui.exe)
         run: >
           pyinstaller --noconfirm --clean
           --name ui
@@ -59,6 +60,20 @@ jobs:
           --collect-submodules sqlalchemy.dialects
           app/cli/entry.py
 
+      - name: Build Launcher EXE (UIBridgeLauncher.exe)
+        run: pyinstaller --noconfirm --clean --noconsole --name UIBridgeLauncher --version-file installer/version_info.txt app/launcher_gui.py
+
+      # Optional artifact: raw EXEs only
+      - name: Archive EXEs (launcher + agent + cli)
+        run: |
+          mkdir UIBridge-EXEs
+          mkdir UIBridge-EXEs\UIBridge
+          mkdir UIBridge-EXEs\ui
+          copy dist\UIBridgeLauncher\UIBridgeLauncher.exe UIBridge-EXEs\
+          copy dist\UIBridge\UIBridge.exe UIBridge-EXEs\UIBridge\
+          copy dist\ui\ui.exe UIBridge-EXEs\ui\
+          powershell Compress-Archive -Path "UIBridge-EXEs\*" -DestinationPath "UIBridge-EXEs.zip" -Force
+
       - name: Prepare Windows package folder
         shell: pwsh
         run: |
@@ -66,9 +81,14 @@ jobs:
           if (Test-Path $pkg) { Remove-Item -Recurse -Force $pkg }
           New-Item -ItemType Directory -Force $pkg | Out-Null
 
-          Copy-Item -Recurse -Force "dist\UIBridge" "$pkg\UIBridge"
-          Copy-Item -Recurse -Force "dist\ui" "$pkg\ui"
+          # copy binaries
+          New-Item -ItemType Directory -Force "$pkg\UIBridge" | Out-Null
+          New-Item -ItemType Directory -Force "$pkg\ui" | Out-Null
+          Copy-Item -Recurse -Force "dist\UIBridge\UIBridge.exe" "$pkg\UIBridge\"
+          Copy-Item -Recurse -Force "dist\ui\ui.exe" "$pkg\ui\"
+          Copy-Item -Recurse -Force "dist\UIBridgeLauncher\UIBridgeLauncher.exe" "$pkg\"
 
+          # helper launchers (CRLF-safe line arrays)
           Set-Content -Encoding ascii "$pkg\Open UIBridge CLI.cmd" @(
             '@echo off',
             'cd /d "%~dp0ui"',
@@ -76,12 +96,49 @@ jobs:
           )
           Set-Content -Encoding ascii "$pkg\Start UIBridge Agent.cmd" @(
             '@echo off',
+            'setlocal',
+            'set HOST=127.0.0.1',
+            'set PORT=%UIB_PORT%',
+            'if "%PORT%"=="" set PORT=5025',
             'cd /d "%~dp0UIBridge"',
-            'start "" UIBridge.exe'
+            'start "" UIBridge.exe',
+            'echo Waiting for agent on %HOST%:%PORT% ...',
+            'for /l %%i in (1,1,25) do (',
+            '  curl -s http://%HOST%:%PORT%/health >nul 2>nul && goto :ok',
+            '  timeout /t 1 >nul',
+            ')',
+            'echo [!] Agent did not respond.',
+            'echo     - Allow Windows Firewall on Private networks if prompted.',
+            'echo     - If you saw "failed to load Python DLL", install the Microsoft VC++ 2015–2022 x64 runtime.',
+            'pause',
+            'exit /b 1',
+            ':ok',
+            'echo [+] Agent is up.',
+            'endlocal'
           )
 
-          Copy-Item -Force "scripts\install_agent_startup.ps1" "$pkg\install_agent_startup.ps1"
-          Copy-Item -Force "scripts\uninstall_agent_startup.ps1" "$pkg\uninstall_agent_startup.ps1"
+          # include startup scripts if you ship them
+          if (Test-Path "scripts\install_agent_startup.ps1") { Copy-Item -Force "scripts\install_agent_startup.ps1" "$pkg\install_agent_startup.ps1" }
+          if (Test-Path "scripts\uninstall_agent_startup.ps1") { Copy-Item -Force "scripts\uninstall_agent_startup.ps1" "$pkg\uninstall_agent_startup.ps1" }
+
+          # drop a quick first-run readme inside the zip
+          Set-Content -Encoding utf8 "$pkg\READ ME FIRST.txt" @(
+            'UIBridge CLI — First Run',
+            '=========================',
+            '',
+            '1) Double-click UIBridgeLauncher.exe',
+            '   - The agent starts automatically and a small window appears.',
+            '2) Click "Open CLI Console", then try:',
+            '      ui open youtube',
+            '      ui search lo-fi',
+            '      ui setup    (paste your Spotify Client ID; the browser opens to link your account)',
+            '      ui play "drake"',
+            '',
+            'Troubleshooting:',
+            '- If the CLI says the agent is not responding, click "Start Agent" in the launcher.',
+            '- If browser commands fail, the launcher’s "Start Agent" will also launch Edge with DevTools and retry.',
+            '- If you saw "failed to load Python DLL", install Microsoft Visual C++ 2015–2022 x64 redistributable.'
+          )
 
       - name: Archive Windows package
         shell: pwsh
@@ -89,26 +146,40 @@ jobs:
           if (Test-Path "UIBridge-Windows.zip") { Remove-Item -Force "UIBridge-Windows.zip" }
           Compress-Archive -Path "UIBridge-Windows\*" -DestinationPath "UIBridge-Windows.zip" -Force
 
-      - name: Upload artifact for publish job
+      - name: Upload artifact for publish job (Windows package)
         uses: actions/upload-artifact@v4
         with:
           name: UIBridge-zip
           path: UIBridge-Windows.zip
 
+      - name: Upload artifact for publish job (EXEs only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: UIBridge-exes
+          path: UIBridge-EXEs.zip
+
   publish:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download built artifact
+      - name: Download built artifact (Windows package)
         uses: actions/download-artifact@v4
         with:
           name: UIBridge-zip
           path: .
 
+      - name: Download built artifact (EXEs only)
+        uses: actions/download-artifact@v4
+        with:
+          name: UIBridge-exes
+          path: .
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: UIBridge-Windows.zip
+          files: |
+            UIBridge-Windows.zip
+            UIBridge-EXEs.zip
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           generate_release_notes: true
