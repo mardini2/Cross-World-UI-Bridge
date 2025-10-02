@@ -1,27 +1,21 @@
-# scripts/uninstall_agent_startup.ps1
-# Remove Desktop/Start Menu/Startup shortcuts and the installed package (optional).
+<#
+Goal: Remove the per-user Scheduled Task that auto-starts the UIBridge agent.
+Why: Let users easily undo auto-start behavior.
+#>
 
-param([switch]$RemoveApp)
+$ErrorActionPreference = 'Stop'
 
-$Desktop   = [Environment]::GetFolderPath("Desktop")
-$StartMenu = [Environment]::GetFolderPath("StartMenu")
-$Programs  = Join-Path $StartMenu "Programs"
-$Startup   = [Environment]::GetFolderPath("Startup")
-$InstallRoot = Join-Path $env:LOCALAPPDATA "UIBridge"
+$taskName = 'UIBridgeAgent'
 
-$paths = @(
-  (Join-Path $Desktop "UIBridge Agent.lnk"),
-  (Join-Path $Desktop "UIBridge CLI.lnk"),
-  (Join-Path $Programs "UIBridge Agent.lnk"),
-  (Join-Path $Programs "UIBridge CLI.lnk"),
-  (Join-Path $Startup  "UIBridge Agent (auto-start).lnk")
-)
+# try to get the task (no error if missing)
+$task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 
-foreach ($p in $paths) { if (Test-Path $p) { Remove-Item $p -Force } }
-
-if ($RemoveApp) {
-  if (Test-Path $InstallRoot) { Remove-Item $InstallRoot -Recurse -Force }
-  Write-Host "Removed installed app at $InstallRoot"
-} else {
-  Write-Host "Shortcuts removed. App files kept at $InstallRoot"
+if ($null -eq $task) {
+  Write-Host "No scheduled task named '$taskName' found. Nothing to do."
+  exit 0
 }
+
+# unregister without confirmation prompt
+Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+
+Write-Host "Removed scheduled task '$taskName'."

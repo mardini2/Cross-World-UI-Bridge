@@ -2,8 +2,7 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    tags: ["v*.*.*"]
   workflow_dispatch:
 
 permissions:
@@ -17,11 +16,9 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -79,112 +76,75 @@ jobs:
           Copy-Item -Recurse -Force "dist\ui" "$pkg\ui"
           Copy-Item -Recurse -Force "dist\UIBridgeLauncher" "$pkg\UIBridgeLauncher"
 
-          # Convenience launchers (.cmd). ASCII, no fancy quotes.
-          Set-Content -Encoding ascii "$pkg\Open UIBridge CLI.cmd" @(
-            '@echo off',
-            'cd /d "%~dp0ui"',
-            'start "" cmd /k ui.exe --help'
+          # Copy helper scripts
+          Copy-Item -Force "scripts\Start UIBridge Agent.cmd"   "$pkg\Start UIBridge Agent.cmd"
+          Copy-Item -Force "scripts\Open UIBridge CLI.cmd"      "$pkg\Open UIBridge CLI.cmd"
+          Copy-Item -Force "scripts\install_agent_startup.ps1"  "$pkg\install_agent_startup.ps1"
+          Copy-Item -Force "scripts\uninstall_agent_startup.ps1"$pkg\uninstall_agent_startup.ps1"
+          Copy-Item -Force "scripts\install_cli_shim.ps1"       "$pkg\install_cli_shim.ps1"
+
+          # README lines (ASCII-safe)
+          $readmeLines = @(
+            'UIBridge CLI — Windows Bundle',
+            '',
+            'Files:',
+            '- UIBridge\UIBridge.exe       (local agent)',
+            '- ui\ui.exe                   (command-line tool)',
+            '- UIBridgeLauncher\UIBridgeLauncher.exe (friendly launcher UI)',
+            '',
+            'Quick start:',
+            '1) Double-click UIBridgeLauncher.exe',
+            '   - Click "Start Agent" to start the local agent.',
+            '   - Click "Open CLI" to open a terminal with ui.exe.',
+            '2) In the terminal, try:',
+            '   ui doctor',
+            '   ui open example.com',
+            '   ui search drake',
+            '',
+            'Spotify (first time):',
+            '1) Run: ui setup',
+            '   - Paste your Spotify Client ID (public; no secret).',
+            '   - Browser opens; complete login.',
+            '2) Then try:',
+            '   ui play "moment apart odesza"',
+            '   ui now',
+            '   ui pause',
+            '',
+            'Notes:',
+            '- If the CLI cannot connect, start the agent first.',
+            '- If browser commands fail, click "Start Agent" and try again.',
+            '- Windows may warn about downloaded ZIPs. Right-click the ZIP > Properties > Unblock, then extract.',
+            '',
+            'Support: see the project README on GitHub.'
           )
-          Set-Content -Encoding ascii "$pkg\Start UIBridge Agent.cmd" @(
-            '@echo off',
-            'cd /d "%~dp0UIBridge"',
-            'start "" UIBridge.exe'
-          )
+          Set-Content -Path "$pkg\README.txt" -Value $readmeLines -Encoding ascii
 
-          # Installer helpers
-          Copy-Item -Force "scripts\install_agent_startup.ps1" "$pkg\install_agent_startup.ps1"
-          Copy-Item -Force "scripts\uninstall_agent_startup.ps1" "$pkg\uninstall_agent_startup.ps1"
-
-          # README written via a double-quoted here-string to avoid quote parsing errors
-          $readme = @"
-          UIBridge CLI — Windows Bundle
-
-          Files:
-          - UIBridge\UIBridge.exe       (local agent)
-          - ui\ui.exe                   (command-line tool)
-          - UIBridgeLauncher\UIBridgeLauncher.exe (friendly launcher UI)
-
-          Quick start:
-          1) Double-click UIBridgeLauncher.exe
-             - Click "Start Agent" to start the local agent.
-             - Click "Open CLI" to open a terminal with ui.exe.
-          2) In the terminal, try:
-             ui doctor
-             ui open example.com
-             ui search drake
-
-          Spotify (first time):
-          1) Run: ui setup
-             - Paste your Spotify "Client ID" (public; no secret).
-             - A browser opens; complete login.
-          2) Then try:
-             ui play "moment apart odesza"
-             ui now
-             ui pause
-
-          Notes:
-          - If the CLI says it cannot connect, start the agent first (UIBridge.exe or via the launcher).
-          - If browser commands fail, click "Start Agent" in the launcher and try again.
-          - Windows may warn about downloaded ZIPs. Right-click the ZIP > Properties > Unblock, then extract.
-
-          Support: see the project README on GitHub.
-          "@
-          Set-Content -Path "$pkg\README.txt" -Value $readme -Encoding UTF8
-
-      - name: Archive Windows package
+      - name: Archive Windows package (single zip)
         shell: pwsh
         run: |
           if (Test-Path "UIBridge-Windows.zip") { Remove-Item -Force "UIBridge-Windows.zip" }
           Compress-Archive -Path "UIBridge-Windows\*" -DestinationPath "UIBridge-Windows.zip" -Force
 
-      # Optional: EXEs-only zip (for debugging/manual installs)
-      - name: Archive EXEs (launcher + agent + cli)
-        shell: pwsh
-        run: |
-          if (Test-Path "UIBridge-EXEs") { Remove-Item -Recurse -Force "UIBridge-EXEs" }
-          New-Item -ItemType Directory -Force "UIBridge-EXEs" | Out-Null
-          New-Item -ItemType Directory -Force "UIBridge-EXEs\UIBridge" | Out-Null
-          New-Item -ItemType Directory -Force "UIBridge-EXEs\ui" | Out-Null
-          Copy-Item -Force "dist\UIBridgeLauncher\UIBridgeLauncher.exe" "UIBridge-EXEs\"
-          Copy-Item -Force "dist\UIBridge\UIBridge.exe" "UIBridge-EXEs\UIBridge\"
-          Copy-Item -Force "dist\ui\ui.exe" "UIBridge-EXEs\ui\"
-          if (Test-Path "UIBridge-EXEs.zip") { Remove-Item -Force "UIBridge-EXEs.zip" }
-          Compress-Archive -Path "UIBridge-EXEs\*" -DestinationPath "UIBridge-EXEs.zip" -Force
-
-      - name: Upload artifact for publish job (Windows package)
+      - name: Upload artifact for publish job
         uses: actions/upload-artifact@v4
         with:
           name: UIBridge-zip
           path: UIBridge-Windows.zip
 
-      - name: Upload artifact for publish job (EXEs only)
-        uses: actions/upload-artifact@v4
-        with:
-          name: UIBridge-exes
-          path: UIBridge-EXEs.zip
-
   publish:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifact (Windows package)
+      - name: Download built artifact
         uses: actions/download-artifact@v4
         with:
           name: UIBridge-zip
           path: .
 
-      - name: Download artifact (EXEs only)
-        uses: actions/download-artifact@v4
-        with:
-          name: UIBridge-exes
-          path: .
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            UIBridge-Windows.zip
-            UIBridge-EXEs.zip
+          files: UIBridge-Windows.zip
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           generate_release_notes: true

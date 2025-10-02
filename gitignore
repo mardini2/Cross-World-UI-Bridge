@@ -27,5 +27,6 @@ UIBridge-Windows.zip
 Thumbs.db
 
 # local env
+.env.*
 .env
 '@ | Out-File -Encoding utf8 .gitignore
