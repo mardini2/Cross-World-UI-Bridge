@@ -17,8 +17,6 @@ from app.auth.oauth import router as spotify_oauth_router
 from app.auth.secrets import get_or_create_token
 from app.db import init_db
 from app.models.schemas import (
-    BrowserOpenRequest,
-    BrowserOpenResponse,
     ErrorResponse,
     FocusRequest,
     HealthResponse,
@@ -94,25 +92,33 @@ async def ping() -> PingResponse:
     return PingResponse(pong="pong", token_last4=token[-4:])
 
 
-@app.post("/v1/browser/open", response_model=BrowserOpenResponse)
-async def browser_open(payload: BrowserOpenRequest = Body(...)) -> BrowserOpenResponse:
-    ok = await open_in_browser(str(payload.url))
-    return BrowserOpenResponse(
-        ok=ok,
-        message="Opened in default browser via CDP." if ok else "Failed to open.",
-        url=str(payload.url),
-    )
+@app.post("/v1/browser/open")
+async def v1_browser_open(payload: dict = Body(...)):
+    """
+    Goal: Open a URL (or search text the CLI normalized) in the controlled browser.
+    Body: {"url": "<string>"}
+    """
+    url = str(payload.get("url", "")).strip()
+    ok = await open_in_browser(url)  # async wrapper returns bool
+    return {"ok": ok, "url": url}
 
 
 @app.post("/v1/browser/launch")
-async def browser_launch() -> dict:
-    pid = launch_edge()
+async def v1_browser_launch():
+    """
+    Goal: Launch Edge with CDP. Returns {"ok": bool, "pid": int}.
+    """
+    pid = await launch_edge()  # async wrapper returns an int PID (or -1)
     return {"ok": pid > 0, "pid": pid}
 
 
 @app.get("/v1/browser/tabs")
-async def browser_tabs() -> dict:
-    tabs = await get_tabs()
+async def v1_browser_tabs():
+    """
+    Goal: List current tabs via CDP.
+    Returns {"tabs": [ ... ]} where each item is a dict.
+    """
+    tabs = await get_tabs()  # async wrapper returns list[dict]
     return {"tabs": tabs}
 
 
