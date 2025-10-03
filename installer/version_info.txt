@@ -17,11 +17,11 @@ VSVersionInfo(
         '040904E4',
         [StringStruct('CompanyName', 'UIBridge'),
          StringStruct('FileDescription', 'UIBridge CLI Agent'),
-         StringStruct('FileVersion', '1.2.0'),
+         StringStruct('FileVersion', '1.3.2'),
          StringStruct('InternalName', 'UIBridge'),
          StringStruct('OriginalFilename', 'UIBridge.exe'),
          StringStruct('ProductName', 'UIBridge CLI'),
-         StringStruct('ProductVersion', '1.2.0')])
+         StringStruct('ProductVersion', '1.3.2')])
       ]),
     VarFileInfo([VarStruct('Translation', [1033, 1252])])
   ]

@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['app\\cli\\entry.py'],
-    pathex=[],
+    ['app\\cli\\cli.py'],
+    pathex=['.'],
     binaries=[],
-    datas=[],
+    datas=[('app', 'app')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -19,27 +19,21 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.datas,
     [],
-    exclude_binaries=True,
     name='ui',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    version='installer\\version_info.txt',
-)
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='ui',
+    icon='NONE',
 )

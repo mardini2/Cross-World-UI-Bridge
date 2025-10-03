@@ -4,7 +4,7 @@ Control real desktop apps from a simple command line. Run a small local agent an
 
 ---
 
-## 🧩 What’s included
+## What’s included
 
 - **UIBridgeLauncher.exe** — small helper window that starts the agent and opens a console for the CLI.
 - **UIBridge.exe** — the local agent (FastAPI). Runs only on your machine.
@@ -15,7 +15,7 @@ No telemetry. Tokens are stored in **Windows Credential Manager**. Everything ru
 
 ---
 
-## 👤 For regular users
+## For regular users
 
 ### 1) Download and unzip
 
@@ -100,7 +100,7 @@ ui window focus "Notepad"
 
 ---
 
-## 👩‍💻 For developers
+## For developers
 
 ### Requirements
 
